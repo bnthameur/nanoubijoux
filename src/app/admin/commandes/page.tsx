@@ -11,18 +11,26 @@ import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
+  no_response: 'bg-gray-100 text-gray-500',
   confirmed: 'bg-blue-100 text-blue-700',
+  ready: 'bg-cyan-100 text-cyan-700',
   shipped: 'bg-purple-100 text-purple-700',
+  shipping: 'bg-orange-100 text-orange-700',
   delivered: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
+  returned: 'bg-purple-100 text-purple-700',
 };
 
 const statusLabels: Record<string, string> = {
   pending: 'En attente',
+  no_response: 'Pas de réponse',
   confirmed: 'Confirmée',
+  ready: 'Prête',
   shipped: 'Expédiée',
+  shipping: 'En livraison',
   delivered: 'Livrée',
   cancelled: 'Annulée',
+  returned: 'Retournée',
 };
 
 const paymentLabels: Record<string, string> = {
@@ -85,14 +93,14 @@ export default function AdminOrdersPage() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((s) => (
+          {['all', 'pending', 'no_response', 'confirmed', 'ready', 'shipped', 'shipping', 'delivered', 'cancelled', 'returned'].map((s) => (
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setPage(0); }}
               className={cn(
                 'px-3 py-1.5 text-xs rounded-full font-medium transition-colors',
                 statusFilter === s
-                  ? 'bg-gold text-white'
+                  ? 'bg-amber-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               )}
             >
@@ -130,7 +138,7 @@ export default function AdminOrdersPage() {
                   <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">#{order.id}</td>
                     <td className="px-4 py-3 text-gray-500">
-                      {order.shipping_address?.full_name || '—'}
+                      {order.full_name || '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {new Date(order.created_at).toLocaleDateString('fr-FR')}

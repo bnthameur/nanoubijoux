@@ -36,6 +36,7 @@ export function Footer() {
                 { href: '/livraison', label: tNav('shipping') },
                 { href: '/faq', label: tNav('faq') },
                 { href: '/blog', label: tNav('blog') },
+                { href: '/suivi', label: t('tracking') },
               ].map((link) => (
                 <li key={link.href}>
                   <Link

@@ -28,16 +28,17 @@ export default function BlogPostPage() {
     if (!slug) return;
     const supabase = createClient();
 
-    supabase
-      .from('blog_posts')
-      .select('*')
-      .eq('slug', slug)
-      .not('published_at', 'is', null)
-      .single()
+    Promise.resolve(
+      supabase
+        .from('blog_posts')
+        .select('*')
+        .eq('slug', slug)
+        .not('published_at', 'is', null)
+        .single()
+    )
       .then(({ data }) => {
         setPost(data);
         if (data) {
-          // fetch 2 other posts
           supabase
             .from('blog_posts')
             .select('*')

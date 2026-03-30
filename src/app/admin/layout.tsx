@@ -5,21 +5,22 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
+  ShoppingCart,
   Package,
   FolderTree,
-  ShoppingCart,
+  Truck,
+  Code,
   Users,
+  Shield,
+  Settings,
   Ticket,
   FileText,
+  BarChart3,
   Menu,
   X,
   LogOut,
-  ChevronLeft,
+  ChevronRight,
   Store,
-  Truck,
-  Code,
-  Shield,
-  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,18 +32,27 @@ interface AdminUser {
   permissions: string[];
 }
 
-const sidebarLinks = [
-  { href: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/admin/commandes', label: 'Commandes', icon: ShoppingCart },
-  { href: '/admin/produits', label: 'Produits', icon: Package },
-  { href: '/admin/categories', label: 'Catégories', icon: FolderTree },
-  { href: '/admin/delivery', label: 'Livraison', icon: Truck },
-  { href: '/admin/pixels', label: 'Pixels', icon: Code },
-  { href: '/admin/clients', label: 'Clients', icon: Users },
-  { href: '/admin/users', label: 'Utilisateurs', icon: Shield, permission: 'users:manage' },
-  { href: '/admin/settings', label: 'Paramètres', icon: Settings, permission: 'settings:manage' },
-  { href: '/admin/coupons', label: 'Coupons', icon: Ticket },
-  { href: '/admin/blog', label: 'Blog', icon: FileText },
+const navItems = [
+  { href: '/admin', icon: LayoutDashboard, label: 'Tableau de bord' },
+  { href: '/admin/commandes', icon: ShoppingCart, label: 'Commandes' },
+  { href: '/admin/produits', icon: Package, label: 'Produits' },
+  { href: '/admin/categories', icon: FolderTree, label: 'Catégories' },
+  { href: '/admin/delivery', icon: Truck, label: 'Livraison' },
+  { href: '/admin/pixels', icon: Code, label: 'Pixels' },
+  { href: '/admin/clients', icon: Users, label: 'Clients' },
+  { href: '/admin/reports', icon: BarChart3, label: 'Rapports' },
+  { href: '/admin/users', icon: Shield, label: 'Utilisateurs', permission: 'users:manage' },
+  { href: '/admin/settings', icon: Settings, label: 'Paramètres', permission: 'settings:manage' },
+  { href: '/admin/coupons', icon: Ticket, label: 'Coupons' },
+  { href: '/admin/blog', icon: FileText, label: 'Blog' },
+];
+
+const mobileNav = [
+  { href: '/admin', icon: LayoutDashboard, label: 'Accueil' },
+  { href: '/admin/commandes', icon: ShoppingCart, label: 'Commandes' },
+  { href: '/admin/produits', icon: Package, label: 'Produits' },
+  { href: '/admin/clients', icon: Users, label: 'Clients' },
+  { href: '/admin/settings', icon: Settings, label: 'Plus' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -50,14 +60,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const isLoginPage = pathname === '/admin/login';
 
-  // Fetch admin user from JWT cookie (skip on login page)
   useEffect(() => {
     if (isLoginPage) return;
     fetch('/api/admin/auth')
-      .then(r => r.ok ? r.json() : null)
+      .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.user) setAdminUser(data.user);
         else router.push('/admin/login');
@@ -65,98 +80,147 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .catch(() => router.push('/admin/login'));
   }, [router, isLoginPage]);
 
-  // Login page renders without the dashboard shell
-  if (isLoginPage) {
-    return <>{children}</>;
-  }
+  if (isLoginPage) return <>{children}</>;
 
   const handleLogout = async () => {
     await fetch('/api/admin/auth', { method: 'DELETE' });
     router.push('/admin/login');
   };
 
-  const canSee = (link: typeof sidebarLinks[0]) => {
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword) {
+      setPwMsg({ text: 'Tous les champs sont requis', ok: false });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwMsg({ text: 'Le mot de passe doit contenir au moins 6 caractères', ok: false });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwMsg({ text: 'Les mots de passe ne correspondent pas', ok: false });
+      return;
+    }
+    setPwSaving(true);
+    setPwMsg(null);
+    try {
+      const res = await fetch('/api/admin/auth/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPwMsg({ text: 'Mot de passe modifié avec succès', ok: true });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setShowPasswordModal(false), 1500);
+      } else {
+        setPwMsg({ text: data.error || 'Erreur', ok: false });
+      }
+    } catch {
+      setPwMsg({ text: 'Erreur de connexion', ok: false });
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  const canSee = (link: (typeof navItems)[0]) => {
     if (!link.permission) return true;
     if (!adminUser) return false;
     if (adminUser.role === 'admin') return true;
     return adminUser.permissions.includes(link.permission);
   };
 
-  const visibleLinks = sidebarLinks.filter(canSee);
+  const visibleLinks = navItems.filter(canSee);
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
     return pathname.startsWith(href);
   };
 
+  const currentPageLabel = visibleLinks.find(l => isActive(l.href))?.label || 'Admin';
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col border-r border-white/5 bg-[#0f172a] text-white transition-transform duration-300 lg:sticky lg:top-0 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-          <Link href="/admin" className="flex items-center gap-2">
-            <Store size={22} className="text-gold" />
-            <span className="font-heading font-bold text-lg text-dark">Nano Admin</span>
-          </Link>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden">
-            <X size={20} />
-          </button>
+        {/* Brand */}
+        <div className="border-b border-white/5 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div
+                className="text-2xl font-black tracking-tight"
+                style={{
+                  background: 'linear-gradient(135deg, #B8860B 0%, #DAA520 50%, #FFD700 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                Nano Bijoux
+              </div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-amber-400/70">
+                Console d&apos;administration
+              </div>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {visibleLinks.map((link) => {
-            const Icon = link.icon;
-            const active = isActive(link.href);
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          {visibleLinks.map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
             return (
               <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setSidebarOpen(false)}
+                key={item.href}
+                href={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition-all duration-200',
                   active
-                    ? 'bg-gold/10 text-gold'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-dark'
+                    ? 'bg-amber-600 font-bold text-white shadow-lg shadow-amber-900/20'
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
                 )}
+                onClick={() => setSidebarOpen(false)}
               >
-                <Icon size={18} />
-                {link.label}
+                <Icon size={20} className="shrink-0 transition-transform group-hover:scale-110" />
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="border-t border-white/5 p-4">
           <Link
             href="/fr"
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gold mb-3"
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-800/50 hover:text-white"
           >
-            <ChevronLeft size={16} />
-            Retour au site
+            <Store size={16} />
+            <span>Retour au site</span>
+            <ChevronRight size={14} className="ml-auto" />
           </Link>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-400 truncate">
+          <div className="mt-3 flex items-center justify-between px-3">
+            <div className="text-xs text-slate-500 truncate">
               {adminUser?.displayName || adminUser?.username || '...'}
             </div>
             <button
               onClick={handleLogout}
-              className="text-gray-400 hover:text-red-500 transition-colors"
+              className="text-slate-500 transition-colors hover:text-red-400"
               title="Déconnexion"
             >
               <LogOut size={16} />
@@ -165,26 +229,121 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-4 lg:px-8 sticky top-0 z-30">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-sm lg:px-8">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-dark"
+            className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100 lg:hidden"
           >
             <Menu size={20} />
           </button>
-          <h1 className="ml-2 lg:ml-0 font-heading font-semibold text-lg text-dark">
-            {visibleLinks.find(l => isActive(l.href))?.label || 'Admin'}
-          </h1>
+          <h1 className="font-semibold text-lg text-gray-800">{currentPageLabel}</h1>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowPasswordModal(true);
+                setPwMsg(null);
+              }}
+              className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200"
+            >
+              {adminUser?.displayName || 'Admin'}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
+            >
+              Déconnexion
+            </button>
+          </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-8">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-4 pb-20 lg:p-8 lg:pb-8">{children}</main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white lg:hidden">
+        <div className="flex items-center justify-around py-1.5">
+          {mobileNav.map(item => {
+            const Icon = item.icon;
+            const active =
+              item.href === '/admin/settings'
+                ? ['/admin/settings', '/admin/pixels', '/admin/reports', '/admin/users', '/admin/coupons', '/admin/blog'].some(
+                    r => pathname === r || pathname.startsWith(r + '/')
+                  )
+                : isActive(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-colors',
+                  active ? 'text-amber-600' : 'text-gray-400'
+                )}
+              >
+                <Icon size={20} />
+                <span className="text-[9px] font-bold leading-none">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Password change modal */}
+      {showPasswordModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          onClick={() => setShowPasswordModal(false)}
+        >
+          <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-800">Changer le mot de passe</h2>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-500 hover:bg-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {pwMsg && (
+              <div className={cn('rounded-xl px-4 py-2.5 text-sm font-medium', pwMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>
+                {pwMsg.text}
+              </div>
+            )}
+
+            {(['currentPassword', 'newPassword', 'confirmPassword'] as const).map((field, i) => {
+              const labels = ['Mot de passe actuel', 'Nouveau mot de passe', 'Confirmer le mot de passe'];
+              const values = [currentPassword, newPassword, confirmPassword];
+              const setters = [setCurrentPassword, setNewPassword, setConfirmPassword];
+              return (
+                <label key={field} className="block space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">{labels[i]}</span>
+                  <input
+                    type="password"
+                    value={values[i]}
+                    onChange={e => setters[i](e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none transition-all focus:border-amber-400 focus:bg-white"
+                  />
+                </label>
+              );
+            })}
+
+            <button
+              onClick={handlePasswordChange}
+              disabled={pwSaving}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-bold text-white transition-all hover:bg-slate-700 disabled:opacity-60"
+            >
+              {pwSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              {pwSaving ? 'En cours...' : 'Changer le mot de passe'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
