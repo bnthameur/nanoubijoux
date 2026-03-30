@@ -13,17 +13,18 @@ import { getLocalizedField, cn } from '@/lib/utils';
 import { getProductBySlug } from '@/lib/supabase/queries';
 import {
   Heart, ShoppingBag, Minus, Plus, Truck, Shield,
-  RotateCcw, ChevronRight, Star, MessageCircle,
+  RotateCcw, ChevronRight, Star, MessageCircle, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '@/types';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 export default function ProductPage() {
   const t = useTranslations('product');
   const tCommon = useTranslations('common');
   const locale = useLocale();
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug as string;
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -79,6 +80,16 @@ export default function ProductPage() {
   const handleAddToCart = () => {
     addToCart(product, null, quantity);
     toast.success(tCommon('addToCart'));
+  };
+
+  const handleBuyNow = () => {
+    addToCart(product, null, quantity);
+    router.push(`/${locale}/commande?product=${product.id}&qty=${quantity}`);
+  };
+
+  const handleWhatsAppOrder = () => {
+    const msg = `Bonjour! Je veux commander:\n\n*${name}*\nPrix: ${formatPrice(product.price)}\nQuantité: ${quantity}\n\nMerci!`;
+    window.open(`https://wa.me/213549631236?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
   const primaryImage = product.images?.[selectedImage]?.url || '/images/placeholder.jpg';
@@ -177,7 +188,7 @@ export default function ProductPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-3 mb-3">
               <Button size="lg" fullWidth onClick={handleAddToCart} disabled={product.stock_quantity === 0}>
                 <ShoppingBag size={18} />
                 {tCommon('addToCart')}
@@ -193,16 +204,24 @@ export default function ProductPage() {
               </button>
             </div>
 
-            {/* WhatsApp */}
-            <a
-              href={`https://wa.me/213549631236?text=${encodeURIComponent(`Bonjour! Je suis intéressé(e) par: ${name}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 border-2 border-green-500 text-green-600 font-medium hover:bg-green-50 transition-colors mb-8"
+            {/* Buy Now */}
+            <button
+              onClick={handleBuyNow}
+              disabled={product.stock_quantity === 0}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors mb-3 disabled:opacity-50"
+            >
+              <Zap size={18} />
+              Acheter maintenant
+            </button>
+
+            {/* WhatsApp order */}
+            <button
+              onClick={handleWhatsAppOrder}
+              className="flex items-center justify-center gap-2 w-full py-3 border-2 border-green-500 text-green-600 font-medium hover:bg-green-50 transition-colors mb-8 rounded-lg"
             >
               <MessageCircle size={18} />
-              {t('askWhatsapp')}
-            </a>
+              Commander via WhatsApp
+            </button>
 
             {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3">
