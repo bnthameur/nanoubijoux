@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { adminSupabase as supabase } from '@/lib/admin-supabase';
 import { EcotrackService } from '@/lib/ecotrack';
+import { PDFDocument } from 'pdf-lib';
 
-// POST /api/admin/orders/bulk-labels — Download multiple PDF labels
+// POST /api/admin/orders/bulk-labels — Download merged PDF bordereaux
 export async function POST(req: Request) {
     try {
         const { orderIds } = await req.json();
@@ -37,31 +38,49 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Aucune commande avec numéro de suivi' }, { status: 400 });
         }
 
-        // For single label, return directly
+        // For single label, return directly without merging
         if (trackingNumbers.length === 1) {
             const pdfBuffer = await ecotrack.getLabel(trackingNumbers[0]);
+            const timestamp = Date.now();
             return new Response(pdfBuffer, {
                 headers: {
                     'Content-Type': 'application/pdf',
-                    'Content-Disposition': `attachment; filename="labels.pdf"`,
+                    'Content-Disposition': `attachment; filename="bordereaux-${timestamp}.pdf"`,
                 },
             });
         }
 
-        // For multiple, fetch each and return as JSON with base64 PDFs
-        const labels: Array<{ tracking: string; pdf: string; error?: string }> = [];
+        // For multiple labels, fetch each PDF and merge using pdf-lib
+        const mergedPdf = await PDFDocument.create();
+        let successCount = 0;
 
         for (const tracking of trackingNumbers) {
             try {
                 const buffer = await ecotrack.getLabel(tracking);
-                const base64 = Buffer.from(buffer).toString('base64');
-                labels.push({ tracking, pdf: base64 });
+                const labelPdf = await PDFDocument.load(buffer);
+                const copiedPages = await mergedPdf.copyPages(labelPdf, labelPdf.getPageIndices());
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+                successCount++;
             } catch (err) {
-                labels.push({ tracking, pdf: '', error: String(err instanceof Error ? err.message : err) });
+                // Skip failed labels gracefully and continue with others
+                console.error(`[bulk-labels] Failed label for tracking ${tracking}:`, err);
             }
         }
 
-        return NextResponse.json({ ok: true, labels });
+        if (successCount === 0) {
+            return NextResponse.json({ error: 'Impossible de récupérer les bordereaux' }, { status: 500 });
+        }
+
+        const mergedBytes = await mergedPdf.save();
+        const mergedBuffer = Buffer.from(mergedBytes);
+        const timestamp = Date.now();
+
+        return new Response(mergedBuffer, {
+            headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="bordereaux-${timestamp}.pdf"`,
+            },
+        });
     } catch (err) {
         console.error('[POST /api/admin/orders/bulk-labels]', err);
         return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });

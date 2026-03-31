@@ -27,6 +27,19 @@ export function CategoryGrid({ categories }: { categories: CategoryWithCount[] }
     return cat.name_fr;
   };
 
+  // Premium gradient fallbacks when no image_url is available
+  const categoryGradients = [
+    'linear-gradient(135deg, #d4af37 0%, #f5e6a3 50%, #b8860b 100%)',
+    'linear-gradient(135deg, #c0a0c0 0%, #e8d5e8 50%, #9b7bb0 100%)',
+    'linear-gradient(135deg, #a0c0d4 0%, #d5e8f5 50%, #6a9fb5 100%)',
+    'linear-gradient(135deg, #d4a0a0 0%, #f5d5d5 50%, #b06a6a 100%)',
+    'linear-gradient(135deg, #a0d4a0 0%, #d5f5d5 50%, #6ab06a 100%)',
+    'linear-gradient(135deg, #d4c0a0 0%, #f5e8d5 50%, #b09060 100%)',
+    'linear-gradient(135deg, #a0a0d4 0%, #d5d5f5 50%, #6a6ab0 100%)',
+    'linear-gradient(135deg, #d4d4a0 0%, #f5f5d5 50%, #b0b060 100%)',
+    'linear-gradient(135deg, #c0d4a0 0%, #e8f5d5 50%, #8ab060 100%)',
+  ];
+
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
     const amount = 300;
@@ -71,13 +84,14 @@ export function CategoryGrid({ categories }: { categories: CategoryWithCount[] }
               className="flex flex-col items-center"
             >
               <Link href={`/boutique?category=${cat.slug}`} className="group flex flex-col items-center flex-shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gold transition-all duration-300 group-hover:shadow-lg">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gold transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.35)]">
                   <div
                     className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{
-                      backgroundImage: cat.image_url ? `url(${cat.image_url})` : undefined,
-                      backgroundColor: !cat.image_url ? '#f5f5f5' : undefined,
-                    }}
+                    style={
+                      cat.image_url
+                        ? { backgroundImage: `url(${cat.image_url})` }
+                        : { background: categoryGradients[index % categoryGradients.length] }
+                    }
                   />
                 </div>
                 <h3 className="mt-3 font-heading text-sm font-semibold text-dark text-center leading-tight">

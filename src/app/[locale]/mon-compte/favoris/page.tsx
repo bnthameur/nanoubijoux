@@ -74,7 +74,7 @@ export default function WishlistPage() {
               >
                 <Link href={`/produit/${product.slug}`} className="block relative aspect-square bg-cream">
                   <Image
-                    src={product.images?.[0]?.url || '/images/placeholder.jpg'}
+                    src={product.images?.[0]?.url || '/images/placeholder.svg'}
                     alt={getLocalizedField(product, 'name', locale)}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"

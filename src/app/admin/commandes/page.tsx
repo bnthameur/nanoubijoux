@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, ShoppingCart, Eye } from 'lucide-react';
+import { Search, ShoppingCart, Eye, Truck, FileDown, Loader2 } from 'lucide-react';
 import { getAllOrders, updateOrderStatus } from '@/lib/supabase/admin-queries';
 import { getErrorMessage } from '@/lib/error-utils';
 import { formatPrice } from '@/lib/constants';
@@ -48,7 +48,12 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(0);
   const limit = 20;
 
-  const fetchOrders = async () => {
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkShipping, setBulkShipping] = useState(false);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const { orders: data, total: count } = await getAllOrders({
@@ -64,9 +69,13 @@ export default function AdminOrdersPage() {
       toast.error(`Erreur: ${getErrorMessage(err)}`);
     }
     setLoading(false);
-  };
+  }, [page, statusFilter, search]);
 
-  useEffect(() => { fetchOrders(); }, [page, statusFilter, search]);
+  useEffect(() => {
+    fetchOrders();
+    // Clear selection when page/filter changes
+    setSelectedIds(new Set());
+  }, [page, statusFilter, search]);
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
@@ -76,6 +85,90 @@ export default function AdminOrdersPage() {
     } catch {
       toast.error('Erreur lors de la mise à jour');
     }
+  };
+
+  // Selection handlers
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const allSelected = orders.length > 0 && orders.every(o => selectedIds.has(String(o.id)));
+  const someSelected = orders.some(o => selectedIds.has(String(o.id)));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(orders.map(o => String(o.id))));
+    }
+  };
+
+  const selectedCount = selectedIds.size;
+
+  // Bulk ship selected orders
+  const handleBulkShip = async () => {
+    if (selectedCount === 0) return;
+    setBulkShipping(true);
+    try {
+      const res = await fetch('/api/admin/orders/bulk-ship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: Array.from(selectedIds) }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Erreur lors de l\'envoi');
+      } else {
+        const { success, total: attempted } = json;
+        toast.success(`${success} / ${attempted} commande(s) envoyée(s) à EcoTrack`);
+        setSelectedIds(new Set());
+        fetchOrders();
+      }
+    } catch (err) {
+      toast.error(`Erreur: ${getErrorMessage(err)}`);
+    }
+    setBulkShipping(false);
+  };
+
+  // Bulk download bordereaux — merge PDFs server-side and open in new tab
+  const handleBulkDownload = async () => {
+    if (selectedCount === 0) return;
+    setBulkDownloading(true);
+    try {
+      const res = await fetch('/api/admin/orders/bulk-labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: Array.from(selectedIds) }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({ error: 'Erreur inconnue' }));
+        toast.error(json.error || 'Erreur lors du téléchargement');
+        return;
+      }
+
+      // Receive merged PDF blob and trigger download
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bordereaux-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(`Erreur: ${getErrorMessage(err)}`);
+    }
+    setBulkDownloading(false);
   };
 
   return (
@@ -124,6 +217,18 @@ export default function AdminOrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someSelected && !allSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      aria-label="Tout sélectionner"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500">ID</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500">Client</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
@@ -134,43 +239,62 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">#{order.id}</td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {order.full_name || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {new Date(order.created_at).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {paymentLabels[order.payment_method] || order.payment_method}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className={cn(
-                          'text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer',
-                          statusColors[order.status]
-                        )}
-                      >
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">{formatPrice(order.total)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/admin/commandes/${order.id}`}
-                        className="p-1.5 text-gray-400 hover:text-gold transition-colors inline-block"
-                      >
-                        <Eye size={15} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {orders.map((order) => {
+                  const orderId = String(order.id);
+                  const isSelected = selectedIds.has(orderId);
+                  return (
+                    <tr
+                      key={order.id}
+                      className={cn(
+                        'border-b border-gray-50 hover:bg-gray-50 transition-colors',
+                        isSelected && 'bg-amber-50'
+                      )}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(orderId)}
+                          className="rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                          aria-label={`Sélectionner commande #${order.id}`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium">#{order.id}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {order.full_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {new Date(order.created_at).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {paymentLabels[order.payment_method] || order.payment_method}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                          className={cn(
+                            'text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer',
+                            statusColors[order.status]
+                          )}
+                        >
+                          {Object.entries(statusLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">{formatPrice(order.total)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/admin/commandes/${order.id}`}
+                          className="p-1.5 text-gray-400 hover:text-gold transition-colors inline-block"
+                        >
+                          <Eye size={15} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -186,6 +310,39 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Bulk action bar — appears when orders are selected */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-2xl shadow-xl border border-gray-700 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-sm font-medium pr-2 border-r border-gray-600">
+            {selectedCount} sélectionnée{selectedCount > 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={handleBulkShip}
+            disabled={bulkShipping || bulkDownloading}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 transition-colors"
+          >
+            {bulkShipping ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Truck size={14} />
+            )}
+            {bulkShipping ? 'Envoi...' : 'Expédier les sélectionnées'}
+          </button>
+          <button
+            onClick={handleBulkDownload}
+            disabled={bulkDownloading || bulkShipping}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-500 disabled:opacity-60 transition-colors"
+          >
+            {bulkDownloading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <FileDown size={14} />
+            )}
+            {bulkDownloading ? 'Génération...' : 'Télécharger les bordereaux'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

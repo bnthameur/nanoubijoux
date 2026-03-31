@@ -30,7 +30,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id));
 
   const name = product.name_fr || 'Produit';
-  const primaryImage = product.images?.[0]?.url || '/images/placeholder.jpg';
+  const primaryImage = product.images?.[0]?.url || '/images/placeholder.svg';
   const outOfStock = product.stock_quantity === 0;
 
   const handleAddToCart = (e: React.MouseEvent) => {

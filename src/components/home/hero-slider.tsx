@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const slides = [
   {
     id: 1,
-    image: '/images/hero-1.jpg',
+    image: 'https://images.unsplash.com/photo-1515562141589-67f0d569b6c2?w=1920&h=800&fit=crop',
     titleKey: 'heroTitle',
     subtitleKey: 'heroSubtitle',
     ctaKey: 'heroCta',
@@ -18,7 +18,7 @@ const slides = [
   },
   {
     id: 2,
-    image: '/images/hero-2.jpg',
+    image: 'https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=1920&h=800&fit=crop',
     titleKey: 'heroTitle2',
     subtitleKey: 'heroSubtitle2',
     ctaKey: 'heroCta2',

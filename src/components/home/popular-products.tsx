@@ -22,7 +22,7 @@ export function PopularProducts() {
           >
             <div
               className="w-full h-full bg-cover bg-center"
-              style={{ backgroundImage: 'url(/images/popular-banner.jpg)' }}
+              style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=1200&h=800&fit=crop)' }}
             />
             {/* Fallback gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-gold/10 to-cream" />

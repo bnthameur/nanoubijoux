@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Package, MapPin, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Package, MapPin, CreditCard, FileText, Truck, Download, Loader2 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/error-utils';
 import Link from 'next/link';
 import { getOrderById, updateOrderStatus } from '@/lib/supabase/admin-queries';
@@ -45,11 +45,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [shipping, setShipping] = useState(false);
   const [status, setStatus] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
 
-  useEffect(() => {
-    getOrderById(id)
+  const fetchOrder = () => {
+    return getOrderById(id)
       .then((data) => {
         setOrder(data as Order);
         setStatus(data.status);
@@ -61,6 +62,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         toast.error(`Erreur: ${getErrorMessage(err)}`);
         router.push('/admin/commandes');
       });
+  };
+
+  useEffect(() => {
+    fetchOrder();
   }, [id, router]);
 
   const handleUpdateStatus = async () => {
@@ -74,6 +79,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       toast.error(`Erreur: ${getErrorMessage(err)}`);
     }
     setSaving(false);
+  };
+
+  const handleShipToEcotrack = async () => {
+    setShipping(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/ship`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Erreur lors de l\'envoi à EcoTrack');
+      } else {
+        toast.success(`Commande envoyée ! N° de suivi : ${json.tracking}`);
+        // Refresh order data to show the new tracking number
+        setLoading(true);
+        await fetchOrder();
+      }
+    } catch (err) {
+      toast.error(`Erreur: ${getErrorMessage(err)}`);
+    }
+    setShipping(false);
   };
 
   if (loading || !order) {
@@ -90,6 +114,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   // Flat fields from DB (not a nested shipping_address object)
   const orderData = order as any;
+  const hasEcotrackTracking = Boolean(orderData.ecotrack_tracking);
+  const isConfirmedWithoutTracking = order.status === 'confirmed' && !hasEcotrackTracking;
 
   return (
     <div className="max-w-5xl">
@@ -107,10 +133,50 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             })}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100'}`}>
-          {statusLabels[order.status] || order.status}
-        </span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* EcoTrack tracking badge */}
+          {hasEcotrackTracking && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-700 border border-cyan-200">
+              <Truck size={13} />
+              EcoTrack: {orderData.ecotrack_tracking}
+            </span>
+          )}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100'}`}>
+            {statusLabels[order.status] || order.status}
+          </span>
+        </div>
       </div>
+
+      {/* EcoTrack action buttons */}
+      {(isConfirmedWithoutTracking || hasEcotrackTracking) && (
+        <div className="flex flex-wrap gap-3 mb-6">
+          {isConfirmedWithoutTracking && (
+            <button
+              onClick={handleShipToEcotrack}
+              disabled={shipping}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 text-white disabled:opacity-60 transition-colors"
+            >
+              {shipping ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Truck size={16} />
+              )}
+              {shipping ? 'Envoi en cours...' : 'Envoyer à EcoTrack'}
+            </button>
+          )}
+          {hasEcotrackTracking && (
+            <a
+              href={`/api/admin/orders/${id}/label`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
+            >
+              <Download size={16} />
+              Télécharger le bordereau
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column — order items + notes */}
@@ -212,8 +278,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   Type: {orderData.delivery_type === 'desk' ? 'Stop desk' : 'À domicile'}
                 </p>
               )}
-              {orderData.ecotrack_tracking && (
-                <p className="text-xs text-blue-600 mt-1">
+              {hasEcotrackTracking && (
+                <p className="text-xs font-medium text-cyan-600 mt-2">
                   Suivi EcoTrack: {orderData.ecotrack_tracking}
                 </p>
               )}

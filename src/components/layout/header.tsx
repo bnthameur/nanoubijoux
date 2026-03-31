@@ -214,7 +214,7 @@ export function Header() {
                             >
                               <div className="w-12 h-12 bg-cream overflow-hidden flex-shrink-0 relative">
                                 <Image
-                                  src={product.images?.[0]?.url || '/images/placeholder.jpg'}
+                                  src={product.images?.[0]?.url || '/images/placeholder.svg'}
                                   alt={getLocalizedField(product, 'name', locale)}
                                   fill
                                   className="object-cover"

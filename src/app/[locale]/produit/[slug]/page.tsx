@@ -92,7 +92,7 @@ export default function ProductPage() {
     window.open(`https://wa.me/213549631236?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const primaryImage = product.images?.[selectedImage]?.url || '/images/placeholder.jpg';
+  const primaryImage = product.images?.[selectedImage]?.url || '/images/placeholder.svg';
 
   return (
     <div className="min-h-screen bg-white">

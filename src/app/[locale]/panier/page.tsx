@@ -60,7 +60,7 @@ export default function CartPage() {
               {items.map((item) => {
                 const name = getLocalizedField(item.product, 'name', locale);
                 const price = item.variant?.price_override ?? item.product.price;
-                const image = item.product.images?.[0]?.url || '/images/placeholder.jpg';
+                const image = item.product.images?.[0]?.url || '/images/placeholder.svg';
 
                 return (
                   <motion.div
