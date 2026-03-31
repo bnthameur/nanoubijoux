@@ -266,7 +266,7 @@ export async function getAllOrders(options?: {
 }) {
   let query = supabase
     .from('orders')
-    .select(`*, items:order_items(*)`, { count: 'exact' });
+    .select(`*, items:order_items(*), wilayas(name_fr)`, { count: 'exact' });
 
   if (options?.status && options.status !== 'all') {
     query = query.eq('status', options.status);

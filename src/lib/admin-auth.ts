@@ -219,7 +219,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
 // ─── Session Management ───────────────────────────────────────────────────────
 
 export async function createSession(user: AppUser): Promise<string> {
-    const secret = process.env.ADMIN_SECRET || 'nanobijoux_secret_key_2026';
+    const secret = getAdminSecret();
 
     const effectivePermissions: Permission[] =
         user.role === 'admin' ? ALL_PERMISSIONS : user.permissions;
@@ -237,8 +237,19 @@ export async function createSession(user: AppUser): Promise<string> {
 }
 
 export async function validateSession(token: string): Promise<JWTPayload | null> {
-    const secret = process.env.ADMIN_SECRET || 'nanobijoux_secret_key_2026';
+    const secret = getAdminSecret();
     return verifyJWT(token, secret);
+}
+
+function getAdminSecret(): string {
+    const secret = process.env.ADMIN_SECRET;
+    if (!secret) {
+        throw new Error(
+            'ADMIN_SECRET environment variable is required. ' +
+            'Generate one with: openssl rand -hex 32'
+        );
+    }
+    return secret;
 }
 
 // ─── Database: Admin User Operations ──────────────────────────────────────────
@@ -401,9 +412,19 @@ export async function bootstrapAdminIfNeeded(): Promise<AppUser | null> {
     const total = await countUsers();
     if (total > 0) return null;
 
-    const username = process.env.ADMIN_USER || 'admin';
-    const password = process.env.ADMIN_PASS || 'admin123';
+    // Bootstrap requires explicit env vars — no hardcoded defaults
+    const username = process.env.ADMIN_BOOTSTRAP_USER;
+    const password = process.env.ADMIN_BOOTSTRAP_PASS;
 
+    if (!username || !password) {
+        console.warn(
+            '[bootstrap] No admin users exist and ADMIN_BOOTSTRAP_USER / ADMIN_BOOTSTRAP_PASS ' +
+            'are not set. Set them to create the first admin account.'
+        );
+        return null;
+    }
+
+    console.log(`[bootstrap] Creating initial admin account: ${username}`);
     return createUser({
         username,
         password,

@@ -39,7 +39,6 @@ const navItems = [
   { href: '/admin/categories', icon: FolderTree, label: 'Catégories' },
   { href: '/admin/delivery', icon: Truck, label: 'Livraison' },
   { href: '/admin/pixels', icon: Code, label: 'Pixels' },
-  { href: '/admin/clients', icon: Users, label: 'Clients' },
   { href: '/admin/reports', icon: BarChart3, label: 'Rapports' },
   { href: '/admin/users', icon: Shield, label: 'Utilisateurs', permission: 'users:manage' },
   { href: '/admin/settings', icon: Settings, label: 'Paramètres', permission: 'settings:manage' },
@@ -51,7 +50,7 @@ const mobileNav = [
   { href: '/admin', icon: LayoutDashboard, label: 'Accueil' },
   { href: '/admin/commandes', icon: ShoppingCart, label: 'Commandes' },
   { href: '/admin/produits', icon: Package, label: 'Produits' },
-  { href: '/admin/clients', icon: Users, label: 'Clients' },
+  { href: '/admin/reports', icon: BarChart3, label: 'Rapports' },
   { href: '/admin/settings', icon: Settings, label: 'Plus' },
 ];
 

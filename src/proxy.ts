@@ -127,7 +127,7 @@ async function handleAdminAuth(request: NextRequest) {
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
-  const secret = process.env.ADMIN_SECRET || 'nanobijoux_secret_key_2026';
+  const secret = process.env.ADMIN_SECRET || '';
   const payload = await verifyJWTEdge(session, secret);
 
   if (!payload) {
@@ -177,7 +177,7 @@ async function handleAdminApiAuth(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const secret = process.env.ADMIN_SECRET || 'nanobijoux_secret_key_2026';
+  const secret = process.env.ADMIN_SECRET || '';
   const payload = await verifyJWTEdge(session, secret);
 
   if (!payload) {

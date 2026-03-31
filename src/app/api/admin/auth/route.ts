@@ -6,8 +6,6 @@ import {
     getUserByUsername,
     validateSession,
     verifyPassword,
-    createJWT,
-    ALL_PERMISSIONS,
 } from '@/lib/admin-auth';
 
 // POST /api/admin/auth — Login
@@ -28,66 +26,31 @@ export async function POST(req: Request) {
     }
 
     try {
-        let token: string;
-        let userInfo: { id: string; username: string; displayName: string; role: string; permissions: string[] };
+        // Ensure first admin is bootstrapped from env vars if no users exist
+        await bootstrapAdminIfNeeded();
 
-        let dbAvailable = true;
-        try {
-            await bootstrapAdminIfNeeded();
-        } catch {
-            dbAvailable = false;
+        // Authenticate against database only — no hardcoded fallback
+        const user = await getUserByUsername(username);
+        if (!user) {
+            return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
         }
 
-        if (dbAvailable) {
-            const user = await getUserByUsername(username);
-            if (user) {
-                const passwordValid = await verifyPassword(password, user.passwordHash);
-                if (!passwordValid) {
-                    return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
-                }
-                token = await createSession(user);
-                userInfo = {
-                    id: user.id,
-                    username: user.username,
-                    displayName: user.displayName,
-                    role: user.role,
-                    permissions: user.permissions,
-                };
-            } else {
-                dbAvailable = false;
-            }
+        const passwordValid = await verifyPassword(password, user.passwordHash);
+        if (!passwordValid) {
+            return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
         }
 
-        if (!dbAvailable) {
-            const envUser = process.env.ADMIN_USER || 'admin';
-            const envPass = process.env.ADMIN_PASS || 'admin123';
-
-            if (username !== envUser || password !== envPass) {
-                return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
-            }
-
-            const secret = process.env.ADMIN_SECRET || 'nanobijoux_secret_key_2026';
-            token = await createJWT(
-                {
-                    userId: 'env-admin',
-                    username: envUser,
-                    displayName: 'Administrateur',
-                    role: 'admin',
-                    permissions: ALL_PERMISSIONS,
-                },
-                secret,
-            );
-            userInfo = {
-                id: 'env-admin',
-                username: envUser,
-                displayName: 'Administrateur',
-                role: 'admin',
-                permissions: ALL_PERMISSIONS,
-            };
-        }
+        const token = await createSession(user);
+        const userInfo = {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            role: user.role,
+            permissions: user.permissions,
+        };
 
         const cookieStore = await cookies();
-        cookieStore.set('admin_session', token!, {
+        cookieStore.set('admin_session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
@@ -95,7 +58,7 @@ export async function POST(req: Request) {
             maxAge: 60 * 60 * 24,
         });
 
-        return NextResponse.json({ ok: true, user: userInfo! });
+        return NextResponse.json({ ok: true, user: userInfo });
     } catch (err) {
         console.error('[POST /api/admin/auth]', err);
         return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
