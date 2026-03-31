@@ -56,7 +56,7 @@ function ProductCarousel({ label, title, products }: ProductCarouselProps) {
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {products.map((product, index) => (
-              <div key={product.id} className="flex-shrink-0 w-[calc(50%-8px)] sm:w-[calc(33.333%-11px)] lg:w-[calc(25%-12px)] snap-start">
+              <div key={product.id} className="flex-shrink-0 w-[44%] sm:w-[calc(33.333%-11px)] lg:w-[calc(25%-12px)] snap-start">
                 <ProductCard product={product} index={index} />
               </div>
             ))}

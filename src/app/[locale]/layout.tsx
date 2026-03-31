@@ -5,6 +5,7 @@ import { routing } from '@/i18n/routing';
 import { AnnouncementBar } from '@/components/layout/announcement-bar';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
+import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { WhatsAppButton } from '@/components/shared/whatsapp-button';
 import { ScrollToTop } from '@/components/shared/scroll-to-top';
 import { Toaster } from 'sonner';
@@ -36,8 +37,9 @@ export default async function LocaleLayout({
         <AuthProvider>
         <AnnouncementBar />
         <Header />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 pb-16 lg:pb-0">{children}</main>
         <Footer />
+        <MobileBottomNav />
         <WhatsAppButton />
         <ScrollToTop />
         <Toaster

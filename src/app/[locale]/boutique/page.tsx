@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/shop/product-card';
@@ -62,17 +61,13 @@ export default function BoutiquePage() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-gray-light">
+    <div className="min-h-screen bg-gray-50">
       {/* Page header */}
-      <div className="bg-cream border-b border-border">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="font-heading text-3xl sm:text-4xl font-bold text-dark"
-          >
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-[1200px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+          <h1 className="font-heading text-xl sm:text-3xl font-bold text-gray-900">
             {t('title')}
-          </motion.h1>
+          </h1>
           {searchQuery ? (
             <div className="flex items-center gap-2 mt-2">
               <p className="text-text-body">
@@ -90,7 +85,7 @@ export default function BoutiquePage() {
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1200px] mx-auto px-2 sm:px-6 lg:px-8 py-3 sm:py-8">
         <div className="flex gap-8">
           {/* Filter sidebar */}
           <FilterSidebar
@@ -103,7 +98,7 @@ export default function BoutiquePage() {
           {/* Main content */}
           <div className="flex-1">
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6 bg-white p-3 border border-border">
+            <div className="flex items-center justify-between mb-3 sm:mb-6 bg-white p-2 sm:p-3 rounded-xl border border-gray-100">
               <Button
                 variant="ghost"
                 size="sm"
@@ -186,14 +181,14 @@ export default function BoutiquePage() {
 
             {/* Product grid */}
             {loading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="aspect-square bg-gray-200 animate-pulse" />
+                  <div key={i} className="aspect-[4/5] bg-gray-200 animate-pulse rounded-2xl" />
                 ))}
               </div>
             ) : (
               <div className={cn(
-                'grid gap-4',
+                'grid gap-2 sm:gap-4',
                 'grid-cols-2',
                 gridCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
               )}>
