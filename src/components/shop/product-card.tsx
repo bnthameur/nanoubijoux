@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { Heart, ShoppingBag, Zap } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useWishlistStore } from '@/stores/wishlist-store';
 import { useHydrated } from '@/hooks/use-hydrated';
@@ -40,6 +40,14 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     if (outOfStock) return;
     addToCart(product);
     toast.success(t('addedToCart'));
+  };
+
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (outOfStock) return;
+    addToCart(product);
+    router.push('/panier');
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
@@ -93,35 +101,50 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             />
           </button>
 
-          {/* Quick add button — bottom right, visible on hover (desktop) or always (mobile) */}
-          {!outOfStock && (
+        </div>
+      </Link>
+
+      {/* Info */}
+      <div className="p-2.5 sm:p-3">
+        <Link href={`/produit/${product.slug}`}>
+          <h3 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-1">
+            {name}
+          </h3>
+
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-sm sm:text-base font-bold text-gray-900">
+              {formatPrice(product.price)}
+            </span>
+            {hasDiscount && (
+              <span className="text-[10px] sm:text-xs text-gray-400 line-through">
+                {formatPrice(product.compare_at_price!)}
+              </span>
+            )}
+          </div>
+        </Link>
+
+        {/* Action buttons */}
+        {!outOfStock && (
+          <div className="flex gap-1.5 mt-2">
             <button
               onClick={handleAddToCart}
-              className="absolute bottom-2 right-2 w-8 h-8 sm:w-9 sm:h-9 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-lg sm:opacity-0 sm:translate-y-2 sm:group-hover:opacity-100 sm:group-hover:translate-y-0 transition-all duration-200 active:scale-90"
+              className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 rounded-lg transition-colors active:scale-95"
             >
-              <ShoppingBag size={14} />
+              <ShoppingBag size={12} />
+              <span className="hidden sm:inline">{t('addToCart')}</span>
+              <span className="sm:hidden">Panier</span>
             </button>
-          )}
-        </div>
-      </Link>
-
-      {/* Info — minimal */}
-      <Link href={`/produit/${product.slug}`} className="block p-2.5 sm:p-3">
-        <h3 className="font-medium text-gray-900 text-xs sm:text-sm leading-tight line-clamp-1">
-          {name}
-        </h3>
-
-        <div className="flex items-center gap-1.5 mt-1">
-          <span className="text-sm sm:text-base font-bold text-gray-900">
-            {formatPrice(product.price)}
-          </span>
-          {hasDiscount && (
-            <span className="text-[10px] sm:text-xs text-gray-400 line-through">
-              {formatPrice(product.compare_at_price!)}
-            </span>
-          )}
-        </div>
-      </Link>
+            <button
+              onClick={handleBuyNow}
+              className="flex-1 flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 rounded-lg transition-colors active:scale-95"
+            >
+              <Zap size={12} />
+              <span className="hidden sm:inline">{t('buyNow')}</span>
+              <span className="sm:hidden">Acheter</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

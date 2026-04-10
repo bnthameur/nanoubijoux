@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getUserByUsername, verifyPassword, hashPassword } from '@/lib/admin-auth';
 import { getUserFromRequest } from '@/lib/permissions';
-import { adminSupabase as supabase } from '@/lib/admin-supabase';
+import { createAdminClient } from '@/lib/supabase/admin-client';
+import { signIn } from '@/lib/admin-auth';
 
 // PATCH /api/admin/auth/password — Change own password
 export async function PATCH(req: Request) {
@@ -30,29 +30,22 @@ export async function PATCH(req: Request) {
     }
 
     try {
-        const dbUser = await getUserByUsername(user.username);
-        if (!dbUser) {
-            return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 });
-        }
+        // Verify current password by attempting sign-in
+        await signIn(user.username, currentPassword);
 
-        const valid = await verifyPassword(currentPassword, dbUser.passwordHash);
-        if (!valid) {
-            return NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 401 });
-        }
-
-        const newHash = await hashPassword(newPassword);
-        const { error } = await supabase
-            .from('admin_users')
-            .update({ password_hash: newHash })
-            .eq('id', dbUser.id);
+        // Update password via Supabase Auth Admin API
+        const supabase = createAdminClient();
+        const { error } = await supabase.auth.admin.updateUserById(user.userId, {
+            password: newPassword,
+        });
 
         if (error) {
+            console.error('[PATCH /api/admin/auth/password]', error);
             return NextResponse.json({ error: 'Erreur lors de la mise à jour' }, { status: 500 });
         }
 
         return NextResponse.json({ ok: true });
-    } catch (err) {
-        console.error('[PATCH /api/admin/auth/password]', err);
-        return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
+    } catch {
+        return NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 401 });
     }
 }

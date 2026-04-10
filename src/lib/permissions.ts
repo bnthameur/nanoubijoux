@@ -5,7 +5,7 @@
  * request, the middleware attaches user info as request headers.
  */
 
-import { validateSession } from './admin-auth';
+import { tokenToJWTPayload } from './admin-auth';
 import type { JWTPayload, Permission } from './admin-auth';
 
 export type { JWTPayload, Permission };
@@ -43,12 +43,12 @@ export async function getUserFromRequest(request: Request): Promise<JWTPayload |
         };
     }
 
-    // Fallback: parse cookie directly
+    // Fallback: parse cookie directly and decode Supabase JWT
     const cookieHeader = request.headers.get('cookie') ?? '';
     const token = parseCookieValue(cookieHeader, 'admin_session');
     if (!token) return null;
 
-    return validateSession(token);
+    return tokenToJWTPayload(token);
 }
 
 export function hasPermission(user: JWTPayload, permission: Permission): boolean {

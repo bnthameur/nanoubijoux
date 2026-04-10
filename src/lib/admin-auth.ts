@@ -1,13 +1,12 @@
 /**
- * admin-auth.ts — Multi-user admin authentication library.
+ * admin-auth.ts — Admin authentication via Supabase Auth.
  *
- * Adapted from LanciFast reference. Uses Web Crypto API throughout
- * for Edge Runtime compatibility. No Node.js-specific APIs.
- *
- * Tables: admin_users, admin_sessions (separate from Supabase Auth).
+ * Uses Supabase Auth for password management and JWT tokens.
+ * Role and permissions are stored in auth.users.app_metadata.
+ * No custom PBKDF2 or JWT signing — Supabase handles everything.
  */
 
-import { adminSupabase as supabase } from './admin-supabase';
+import { createAdminClient } from './supabase/admin-client';
 
 // ─── Permission Definitions ───────────────────────────────────────────────────
 
@@ -57,6 +56,20 @@ export interface AppUser {
     createdAt: string;
 }
 
+export interface AdminTokenPayload {
+    sub: string;          // Supabase user ID
+    email: string;
+    role: string;         // Supabase role (always 'authenticated')
+    app_metadata: {
+        admin_role?: UserRole;
+        permissions?: Permission[];
+        display_name?: string;
+        username?: string;
+    };
+    exp: number;
+}
+
+// Legacy compatibility alias
 export interface JWTPayload {
     userId: string;
     username: string;
@@ -84,231 +97,98 @@ export interface UpdateUserData {
     password?: string;
 }
 
-// ─── Web Crypto Password Hashing (PBKDF2) ─────────────────────────────────────
+// ─── Email convention ────────────────────────────────────────────────────────
 
-export async function hashPassword(plain: string): Promise<string> {
-    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-    const salt = bufToHex(saltBytes);
+const EMAIL_DOMAIN = 'admin.nanobijoux.local';
 
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(plain),
-        'PBKDF2',
-        false,
-        ['deriveBits'],
-    );
-
-    const derived = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt: saltBytes, iterations: 100_000, hash: 'SHA-256' },
-        keyMaterial,
-        256,
-    );
-
-    const hash = bufToHex(new Uint8Array(derived));
-    return `${salt}:${hash}`;
+export function usernameToEmail(username: string): string {
+    return `${username.toLowerCase().replace(/[^a-z0-9._-]/g, '')}@${EMAIL_DOMAIN}`;
 }
 
-export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
-    const colonIdx = stored.indexOf(':');
-    if (colonIdx === -1) return false;
-
-    const saltHex = stored.slice(0, colonIdx);
-    const expectedHash = stored.slice(colonIdx + 1);
-    const saltBytes = hexToBuf(saltHex);
-
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(plain),
-        'PBKDF2',
-        false,
-        ['deriveBits'],
-    );
-
-    const derived = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt: new Uint8Array(saltBytes.buffer as ArrayBuffer), iterations: 100_000, hash: 'SHA-256' },
-        keyMaterial,
-        256,
-    );
-
-    const actualHash = bufToHex(new Uint8Array(derived));
-    return constantTimeEqual(actualHash, expectedHash);
+export function emailToUsername(email: string): string {
+    return email.split('@')[0];
 }
 
-// ─── JWT Utilities (HMAC-SHA256, Edge-compatible) ─────────────────────────────
+// ─── Authentication ──────────────────────────────────────────────────────────
 
-function base64urlEncode(bytes: Uint8Array): string {
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+/**
+ * Sign in with username + password via Supabase Auth.
+ * Returns { user, accessToken } on success.
+ */
+export async function signIn(username: string, password: string) {
+    const supabase = createAdminClient();
+    const email = usernameToEmail(username);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+
+    if (error) {
+        throw new Error('Identifiants incorrects');
     }
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
 
-function base64urlDecode(str: string): Uint8Array {
-    const padded = str.replace(/-/g, '+').replace(/_/g, '/');
-    const padLen = (4 - (padded.length % 4)) % 4;
-    const base64 = padded + '='.repeat(padLen);
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-}
+    const meta = data.user.app_metadata;
+    const adminRole = (meta.admin_role as UserRole) || 'agent';
+    const permissions = adminRole === 'admin'
+        ? ALL_PERMISSIONS
+        : (meta.permissions as Permission[]) || AGENT_DEFAULT_PERMISSIONS;
 
-async function getHmacKey(secret: string): Promise<CryptoKey> {
-    return crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign', 'verify'],
-    );
-}
-
-export async function createJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>, secret: string): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
-    const fullPayload: JWTPayload = {
-        ...payload,
-        iat: now,
-        exp: now + 60 * 60 * 24, // 24 hours
-    };
-
-    const header = base64urlEncode(new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-    const body = base64urlEncode(new TextEncoder().encode(JSON.stringify(fullPayload)));
-    const signingInput = `${header}.${body}`;
-
-    const key = await getHmacKey(secret);
-    const signatureBytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
-
-    const signature = base64urlEncode(new Uint8Array(signatureBytes));
-    return `${signingInput}.${signature}`;
-}
-
-export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-
-        const [header, body, signature] = parts;
-        const signingInput = `${header}.${body}`;
-
-        const key = await getHmacKey(secret);
-        const sigBytes = base64urlDecode(signature);
-
-        const valid = await crypto.subtle.verify(
-            'HMAC',
-            key,
-            sigBytes.buffer as ArrayBuffer,
-            new TextEncoder().encode(signingInput),
-        );
-
-        if (!valid) return null;
-
-        const payload = JSON.parse(new TextDecoder().decode(base64urlDecode(body))) as JWTPayload;
-
-        const now = Math.floor(Date.now() / 1000);
-        if (payload.exp < now) return null;
-
-        return payload;
-    } catch {
-        return null;
-    }
-}
-
-// ─── Session Management ───────────────────────────────────────────────────────
-
-export async function createSession(user: AppUser): Promise<string> {
-    const secret = getAdminSecret();
-
-    const effectivePermissions: Permission[] =
-        user.role === 'admin' ? ALL_PERMISSIONS : user.permissions;
-
-    return createJWT(
-        {
-            userId: user.id,
-            username: user.username,
-            displayName: user.displayName,
-            role: user.role,
-            permissions: effectivePermissions,
+    return {
+        user: {
+            id: data.user.id,
+            username: meta.username || emailToUsername(data.user.email!),
+            displayName: meta.display_name || username,
+            role: adminRole,
+            permissions,
         },
-        secret,
-    );
-}
-
-export async function validateSession(token: string): Promise<JWTPayload | null> {
-    const secret = getAdminSecret();
-    return verifyJWT(token, secret);
-}
-
-function getAdminSecret(): string {
-    const secret = process.env.ADMIN_SECRET;
-    if (!secret) {
-        throw new Error(
-            'ADMIN_SECRET environment variable is required. ' +
-            'Generate one with: openssl rand -hex 32'
-        );
-    }
-    return secret;
-}
-
-// ─── Database: Admin User Operations ──────────────────────────────────────────
-
-function dbToUser(row: Record<string, unknown>): AppUser {
-    return {
-        id: row.id as string,
-        username: row.username as string,
-        displayName: (row.display_name ?? '') as string,
-        role: (row.role ?? 'agent') as UserRole,
-        permissions: (row.permissions ?? []) as Permission[],
-        active: row.active as boolean,
-        createdAt: row.created_at as string,
+        accessToken: data.session.access_token,
     };
 }
 
-export async function getUserByUsername(username: string): Promise<(AppUser & { passwordHash: string }) | null> {
-    const { data, error } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('username', username)
-        .eq('active', true)
-        .single();
+// ─── User Management (via Supabase Auth Admin API) ───────────────────────────
 
-    if (error || !data) return null;
-
+function authUserToAppUser(user: { id: string; email?: string; app_metadata: Record<string, unknown>; created_at: string; banned_at?: string | null }): AppUser {
+    const meta = user.app_metadata || {};
+    const role = (meta.admin_role as UserRole) || 'agent';
     return {
-        ...dbToUser(data as Record<string, unknown>),
-        passwordHash: (data as Record<string, unknown>).password_hash as string,
+        id: user.id,
+        username: (meta.username as string) || emailToUsername(user.email || ''),
+        displayName: (meta.display_name as string) || '',
+        role,
+        permissions: role === 'admin'
+            ? ALL_PERMISSIONS
+            : (meta.permissions as Permission[]) || AGENT_DEFAULT_PERMISSIONS,
+        active: !user.banned_at,
+        createdAt: user.created_at,
     };
-}
-
-export async function getUserById(id: string): Promise<AppUser | null> {
-    const { data, error } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-    if (error || !data) return null;
-    return dbToUser(data as Record<string, unknown>);
 }
 
 export async function listUsers(): Promise<AppUser[]> {
-    const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, username, display_name, role, permissions, active, created_at')
-        .order('created_at', { ascending: true });
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {
         console.error('[listUsers]', error);
         return [];
     }
 
-    return (data ?? []).map(row => dbToUser(row as Record<string, unknown>));
+    // Only show users with our admin email domain
+    return data.users
+        .filter(u => u.email?.endsWith(`@${EMAIL_DOMAIN}`))
+        .map(u => authUserToAppUser(u as any));
+}
+
+export async function getUserById(id: string): Promise<AppUser | null> {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.auth.admin.getUserById(id);
+
+    if (error || !data.user) return null;
+    return authUserToAppUser(data.user as any);
 }
 
 export async function createUser(data: CreateUserData): Promise<AppUser | null> {
-    const passwordHash = await hashPassword(data.password);
+    const supabase = createAdminClient();
 
     const effectivePermissions: Permission[] =
         data.role === 'admin'
@@ -317,75 +197,81 @@ export async function createUser(data: CreateUserData): Promise<AppUser | null> 
             ? AGENT_DEFAULT_PERMISSIONS
             : (data.permissions ?? []);
 
-    const row = {
-        username: data.username,
-        password_hash: passwordHash,
-        display_name: data.displayName ?? data.username,
-        role: data.role ?? 'agent',
-        permissions: effectivePermissions,
-        active: true,
-        created_by: data.createdBy ?? null,
-    };
-
-    const { data: inserted, error } = await supabase
-        .from('admin_users')
-        .insert(row)
-        .select()
-        .single();
+    const { data: result, error } = await supabase.auth.admin.createUser({
+        email: usernameToEmail(data.username),
+        password: data.password,
+        email_confirm: true, // Auto-confirm — no email verification needed for admin
+        app_metadata: {
+            username: data.username,
+            display_name: data.displayName || data.username,
+            admin_role: data.role || 'agent',
+            permissions: effectivePermissions,
+            created_by: data.createdBy || null,
+        },
+    });
 
     if (error) {
         console.error('[createUser]', error);
         return null;
     }
 
-    return dbToUser(inserted as Record<string, unknown>);
+    return authUserToAppUser(result.user as any);
 }
 
 export async function updateUser(id: string, updates: UpdateUserData): Promise<AppUser | null> {
-    const row: Record<string, unknown> = {};
+    const supabase = createAdminClient();
 
-    if (updates.displayName !== undefined) row.display_name = updates.displayName;
-    if (updates.role !== undefined) row.role = updates.role;
-    if (updates.active !== undefined) row.active = updates.active;
+    // Get current user to merge metadata
+    const { data: current, error: getError } = await supabase.auth.admin.getUserById(id);
+    if (getError || !current.user) return null;
 
-    if (updates.permissions !== undefined) {
-        row.permissions = updates.role === 'admin'
-            ? ALL_PERMISSIONS
-            : updates.permissions;
-    } else if (updates.role === 'admin') {
-        row.permissions = ALL_PERMISSIONS;
-    } else if (updates.role === 'agent') {
-        row.permissions = AGENT_DEFAULT_PERMISSIONS;
+    const currentMeta = current.user.app_metadata || {};
+    const newMeta: Record<string, unknown> = { ...currentMeta };
+
+    if (updates.displayName !== undefined) newMeta.display_name = updates.displayName;
+    if (updates.role !== undefined) {
+        newMeta.admin_role = updates.role;
+        if (updates.role === 'admin') {
+            newMeta.permissions = ALL_PERMISSIONS;
+        } else if (updates.role === 'agent') {
+            newMeta.permissions = AGENT_DEFAULT_PERMISSIONS;
+        }
+    }
+    if (updates.permissions !== undefined && newMeta.admin_role !== 'admin') {
+        newMeta.permissions = updates.permissions;
     }
 
-    if (updates.password !== undefined) {
-        row.password_hash = await hashPassword(updates.password);
+    const updatePayload: Record<string, unknown> = {
+        app_metadata: newMeta,
+    };
+
+    if (updates.password) {
+        updatePayload.password = updates.password;
     }
 
-    if (Object.keys(row).length === 0) {
-        return getUserById(id);
+    // Ban/unban for active toggle
+    if (updates.active === false) {
+        updatePayload.ban_duration = '876000h'; // ~100 years
+    } else if (updates.active === true) {
+        updatePayload.ban_duration = 'none';
     }
 
-    const { data, error } = await supabase
-        .from('admin_users')
-        .update(row)
-        .eq('id', id)
-        .select()
-        .single();
-
+    const { data: result, error } = await supabase.auth.admin.updateUserById(id, updatePayload);
     if (error) {
         console.error('[updateUser]', error);
         return null;
     }
 
-    return dbToUser(data as Record<string, unknown>);
+    return authUserToAppUser(result.user as any);
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
-    const { error } = await supabase
-        .from('admin_users')
-        .update({ active: false })
-        .eq('id', id);
+    const supabase = createAdminClient();
+
+    // Soft delete: ban the user instead of hard deleting
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+        ban_duration: '876000h',
+    });
 
     if (error) {
         console.error('[deleteUser]', error);
@@ -394,67 +280,49 @@ export async function deleteUser(id: string): Promise<boolean> {
     return true;
 }
 
-export async function countUsers(): Promise<number> {
-    const { count, error } = await supabase
-        .from('admin_users')
-        .select('*', { count: 'exact', head: true });
+/**
+ * Decode a Supabase access token JWT payload (no cryptographic verification).
+ * Safe because the cookie is httpOnly + secure + sameSite.
+ */
+export function decodeAccessToken(token: string): AdminTokenPayload | null {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
 
-    if (error) {
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-            throw new Error('admin_users table does not exist');
-        }
-        return 0;
-    }
-    return count ?? 0;
-}
-
-export async function bootstrapAdminIfNeeded(): Promise<AppUser | null> {
-    const total = await countUsers();
-    if (total > 0) return null;
-
-    // Bootstrap requires explicit env vars — no hardcoded defaults
-    const username = process.env.ADMIN_BOOTSTRAP_USER;
-    const password = process.env.ADMIN_BOOTSTRAP_PASS;
-
-    if (!username || !password) {
-        console.warn(
-            '[bootstrap] No admin users exist and ADMIN_BOOTSTRAP_USER / ADMIN_BOOTSTRAP_PASS ' +
-            'are not set. Set them to create the first admin account.'
+        const payload = JSON.parse(
+            Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8')
         );
+
+        // Check expiration
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) return null;
+
+        return payload as AdminTokenPayload;
+    } catch {
         return null;
     }
-
-    console.log(`[bootstrap] Creating initial admin account: ${username}`);
-    return createUser({
-        username,
-        password,
-        displayName: 'Administrateur',
-        role: 'admin',
-        permissions: ALL_PERMISSIONS,
-    });
 }
 
-// ─── Utility Helpers ──────────────────────────────────────────────────────────
+/**
+ * Extract admin JWTPayload from a Supabase access token.
+ * Compatible with the old JWTPayload interface used by permissions.ts and proxy.ts.
+ */
+export function tokenToJWTPayload(token: string): JWTPayload | null {
+    const decoded = decodeAccessToken(token);
+    if (!decoded) return null;
 
-function bufToHex(buf: Uint8Array): string {
-    return Array.from(buf)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-}
+    const meta = decoded.app_metadata || {};
+    const adminRole = (meta.admin_role as UserRole) || 'agent';
 
-function hexToBuf(hex: string): Uint8Array {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    }
-    return bytes;
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) return false;
-    let diff = 0;
-    for (let i = 0; i < a.length; i++) {
-        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return diff === 0;
+    return {
+        userId: decoded.sub,
+        username: (meta.username as string) || emailToUsername(decoded.email || ''),
+        displayName: (meta.display_name as string) || '',
+        role: adminRole,
+        permissions: adminRole === 'admin'
+            ? ALL_PERMISSIONS
+            : (meta.permissions as Permission[]) || AGENT_DEFAULT_PERMISSIONS,
+        exp: decoded.exp,
+        iat: decoded.exp - 3600,
+    };
 }

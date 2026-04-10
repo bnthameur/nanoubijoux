@@ -6,14 +6,12 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import {
   Search,
-  User,
   ShoppingCart,
   Menu,
   X,
   Loader2,
 } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
-import { useAuthStore } from '@/stores/auth-store';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { cn, getLocalizedField } from '@/lib/utils';
 import { formatPrice } from '@/lib/constants';
@@ -26,9 +24,9 @@ import type { Product } from '@/types';
 const navLinks = [
   { href: '/', key: 'home' },
   { href: '/boutique', key: 'shop' },
+  { href: '/suivi', key: 'tracking' },
   { href: '/a-propos', key: 'about' },
   { href: '/contact', key: 'contact' },
-  { href: '/blog', key: 'blog' },
 ] as const;
 
 export function Header() {
@@ -46,8 +44,6 @@ export function Header() {
   const mounted = useHydrated();
   const cartItemCount = useCartStore((s) => s.getItemCount());
   const cartTotal = useCartStore((s) => s.getSubtotal());
-  const user = useAuthStore((s) => s.user);
-  const profile = useAuthStore((s) => s.profile);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -139,17 +135,6 @@ export function Header() {
               <div className="hidden sm:block">
                 <LanguageSwitcher />
               </div>
-
-              {/* Account */}
-              <Link href={user ? '/mon-compte' : '/connexion'} className="p-1.5 hover:opacity-70 transition-opacity hidden sm:flex items-center gap-1.5">
-                {user ? (
-                  <div className="w-7 h-7 bg-gold text-white text-xs font-bold flex items-center justify-center">
-                    {(profile?.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
-                  </div>
-                ) : (
-                  <User size={20} className="text-dark" />
-                )}
-              </Link>
 
               {/* Cart with total */}
               <Link href="/panier" className="flex items-center gap-2 hover:opacity-70 transition-opacity">

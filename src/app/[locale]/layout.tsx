@@ -9,7 +9,6 @@ import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { WhatsAppButton } from '@/components/shared/whatsapp-button';
 import { ScrollToTop } from '@/components/shared/scroll-to-top';
 import { Toaster } from 'sonner';
-import { AuthProvider } from '@/components/shared/auth-provider';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -34,7 +33,6 @@ export default async function LocaleLayout({
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'}>
       <NextIntlClientProvider messages={messages}>
-        <AuthProvider>
         <AnnouncementBar />
         <Header />
         <main className="flex-1 pb-16 lg:pb-0">{children}</main>
@@ -52,7 +50,6 @@ export default async function LocaleLayout({
             },
           }}
         />
-      </AuthProvider>
       </NextIntlClientProvider>
     </div>
   );

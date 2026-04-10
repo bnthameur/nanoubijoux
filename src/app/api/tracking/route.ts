@@ -4,6 +4,36 @@ import { z } from 'zod';
 import { adminSupabase as supabase } from '@/lib/admin-supabase';
 
 // ---------------------------------------------------------------------------
+// Rate limiting — simple in-memory store per IP
+// ---------------------------------------------------------------------------
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 10; // max requests per window
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return true;
+  return false;
+}
+
+// Cleanup stale entries periodically (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of rateLimitMap) {
+    if (now > val.resetAt) rateLimitMap.delete(key);
+  }
+}, 300_000);
+
+// ---------------------------------------------------------------------------
 // Validation schemas
 // ---------------------------------------------------------------------------
 
@@ -75,13 +105,19 @@ const ORDER_SELECT = `
   )
 `.trim();
 
+/** Mask phone: 0555123456 → 0555***456 */
+function maskPhone(phone: string): string {
+  if (phone.length < 7) return phone;
+  return phone.slice(0, 4) + '***' + phone.slice(-3);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function transformOrder(raw: any): TrackingOrder {
   return {
     id: raw.id,
     status: raw.status,
     full_name: raw.full_name ?? '',
-    phone: raw.phone ?? '',
+    phone: maskPhone(raw.phone ?? ''),
     total: Number(raw.total) || 0,
     created_at: raw.created_at,
     tracking_number: raw.tracking_number ?? null,
@@ -111,6 +147,15 @@ function transformOrder(raw: any): TrackingOrder {
 // ---------------------------------------------------------------------------
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // Rate limit by IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Trop de requêtes. Veuillez réessayer dans une minute.' },
+      { status: 429 }
+    );
+  }
+
   const { searchParams } = request.nextUrl;
   const phone = searchParams.get('phone');
   const id = searchParams.get('id');

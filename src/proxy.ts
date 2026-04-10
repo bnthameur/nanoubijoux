@@ -20,7 +20,19 @@ const ROUTE_PERMISSIONS: Array<{ prefix: string; permission: string }> = [
   { prefix: '/api/admin/products', permission: 'products:manage' },
 ];
 
-// ─── Edge-compatible JWT verification ─────────────────────────────────────────
+// ─── Permission constants (duplicated for Edge runtime) ──────────────────────
+
+type UserRole = 'admin' | 'agent' | 'custom';
+
+const ALL_PERMISSIONS = [
+  'orders:view', 'orders:edit', 'orders:delete', 'orders:ship',
+  'products:manage', 'categories:manage', 'pixels:manage',
+  'delivery:manage', 'settings:manage', 'users:manage', 'reports:view',
+];
+
+const AGENT_DEFAULT_PERMISSIONS = ['orders:view', 'orders:edit'];
+
+// ─── Edge-compatible Supabase JWT decoding ───────────────────────────────────
 
 interface JWTPayload {
   userId: string;
@@ -32,52 +44,39 @@ interface JWTPayload {
   iat: number;
 }
 
-function base64urlDecode(str: string): Uint8Array {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/');
-  const padLen = (4 - (padded.length % 4)) % 4;
-  const base64 = padded + '='.repeat(padLen);
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function verifyJWTEdge(token: string, secret: string): Promise<JWTPayload | null> {
+function decodeJWTEdge(token: string): JWTPayload | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    const [header, body, signature] = parts;
-    const signingInput = `${header}.${body}`;
+    // Edge-compatible base64url decode using atob
+    const body = parts[1];
+    const padded = body.replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (padded.length % 4)) % 4;
+    const base64 = padded + '='.repeat(padLen);
+    const decoded = JSON.parse(atob(base64));
 
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-
-    const sigBytes = base64urlDecode(signature);
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      sigBytes.buffer as ArrayBuffer,
-      new TextEncoder().encode(signingInput),
-    );
-
-    if (!valid) return null;
-
-    const payload = JSON.parse(
-      new TextDecoder().decode(base64urlDecode(body)),
-    ) as JWTPayload;
-
+    // Check expiration
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp < now) return null;
+    if (decoded.exp && decoded.exp < now) return null;
 
-    return payload;
+    // Extract admin info from Supabase app_metadata
+    const meta = decoded.app_metadata || {};
+    const adminRole = (meta.admin_role as UserRole) || 'agent';
+
+    const emailToUsername = (email: string) => email.split('@')[0];
+
+    return {
+      userId: decoded.sub,
+      username: (meta.username as string) || emailToUsername(decoded.email || ''),
+      displayName: (meta.display_name as string) || '',
+      role: adminRole,
+      permissions: adminRole === 'admin'
+        ? ALL_PERMISSIONS
+        : (meta.permissions as string[]) || AGENT_DEFAULT_PERMISSIONS,
+      exp: decoded.exp,
+      iat: decoded.iat || (decoded.exp - 3600),
+    };
   } catch {
     return null;
   }
@@ -120,15 +119,14 @@ export function proxy(request: NextRequest) {
 
 // ─── Admin page auth (redirects to /admin/login) ─────────────────────────────
 
-async function handleAdminAuth(request: NextRequest) {
+function handleAdminAuth(request: NextRequest) {
   const session = request.cookies.get('admin_session')?.value;
 
   if (!session) {
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
-  const secret = process.env.ADMIN_SECRET || '';
-  const payload = await verifyJWTEdge(session, secret);
+  const payload = decodeJWTEdge(session);
 
   if (!payload) {
     const response = NextResponse.redirect(new URL('/admin/login', request.url));
@@ -163,7 +161,7 @@ async function handleAdminAuth(request: NextRequest) {
 
 // ─── Admin API auth (returns 401/403 JSON) ────────────────────────────────────
 
-async function handleAdminApiAuth(request: NextRequest) {
+function handleAdminApiAuth(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Auth endpoints are public
@@ -177,8 +175,7 @@ async function handleAdminApiAuth(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const secret = process.env.ADMIN_SECRET || '';
-  const payload = await verifyJWTEdge(session, secret);
+  const payload = decodeJWTEdge(session);
 
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

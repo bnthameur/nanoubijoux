@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import {
-    bootstrapAdminIfNeeded,
-    createSession,
-    getUserByUsername,
-    validateSession,
-    verifyPassword,
-} from '@/lib/admin-auth';
+import { signIn, tokenToJWTPayload } from '@/lib/admin-auth';
 
 // POST /api/admin/auth — Login
 export async function POST(req: Request) {
@@ -22,46 +16,27 @@ export async function POST(req: Request) {
     }
 
     if (!username || !password) {
-        return NextResponse.json({ error: 'Nom d\'utilisateur et mot de passe requis' }, { status: 400 });
+        return NextResponse.json({ error: "Nom d'utilisateur et mot de passe requis" }, { status: 400 });
     }
 
     try {
-        // Ensure first admin is bootstrapped from env vars if no users exist
-        await bootstrapAdminIfNeeded();
-
-        // Authenticate against database only — no hardcoded fallback
-        const user = await getUserByUsername(username);
-        if (!user) {
-            return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
-        }
-
-        const passwordValid = await verifyPassword(password, user.passwordHash);
-        if (!passwordValid) {
-            return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
-        }
-
-        const token = await createSession(user);
-        const userInfo = {
-            id: user.id,
-            username: user.username,
-            displayName: user.displayName,
-            role: user.role,
-            permissions: user.permissions,
-        };
+        const { user, accessToken } = await signIn(username, password);
 
         const cookieStore = await cookies();
-        cookieStore.set('admin_session', token, {
+        cookieStore.set('admin_session', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: 60 * 60 * 24,
+            maxAge: 60 * 60 * 24, // 24 hours
         });
 
-        return NextResponse.json({ ok: true, user: userInfo });
+        return NextResponse.json({ ok: true, user });
     } catch (err) {
-        console.error('[POST /api/admin/auth]', err);
-        return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
+        const message = err instanceof Error ? err.message : 'Erreur interne';
+        const status = message === 'Identifiants incorrects' ? 401 : 500;
+        if (status === 500) console.error('[POST /api/admin/auth]', err);
+        return NextResponse.json({ error: message }, { status });
     }
 }
 
@@ -94,7 +69,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
         }
 
-        const payload = await validateSession(token);
+        const payload = tokenToJWTPayload(token);
         if (!payload) {
             return NextResponse.json({ error: 'Session expirée' }, { status: 401 });
         }

@@ -1,68 +1,97 @@
 /**
- * Seed initial admin account into admin_users table.
- * Run once to bootstrap. Uses Web Crypto API (Node 20+).
+ * Seed admin user via Supabase Auth Admin API.
+ *
+ * Usage: node scripts/seed-admin.mjs
+ *
+ * Creates the initial admin account using Supabase Auth.
+ * Safe to run multiple times — will skip if user already exists.
  */
+
 import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const supabaseUrl = 'https://bzqvvowhudeqcdjjajcn.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!supabaseKey) { console.error('Missing SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, '../.env.local') });
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function bufToHex(buf) {
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
+  process.exit(1);
 }
 
-async function hashPassword(plain) {
-  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-  const salt = bufToHex(saltBytes);
-  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(plain), 'PBKDF2', false, ['deriveBits']);
-  const derived = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
-  const hash = bufToHex(derived);
-  return `${salt}:${hash}`;
-}
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
-async function seed() {
-  const username = process.env.ADMIN_USER || 'admin';
-  const password = process.env.ADMIN_PASS || 'NanoBijoux2026!';
+const EMAIL_DOMAIN = 'admin.nanobijoux.local';
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'NanoBijoux2026!';
+const ADMIN_EMAIL = `${ADMIN_USERNAME}@${EMAIL_DOMAIN}`;
 
-  // Check if admin already exists
-  const { data: existing } = await supabase
-    .from('admin_users')
-    .select('id')
-    .eq('username', username)
-    .single();
+async function main() {
+  console.log(`Seeding admin user: ${ADMIN_USERNAME} (${ADMIN_EMAIL})`);
+
+  // Check if user already exists
+  const { data: existingUsers } = await supabase.auth.admin.listUsers();
+  const existing = existingUsers?.users?.find(u => u.email === ADMIN_EMAIL);
 
   if (existing) {
-    console.log(`Admin user "${username}" already exists (id: ${existing.id}). Updating password...`);
-    const passwordHash = await hashPassword(password);
-    const { error } = await supabase
-      .from('admin_users')
-      .update({ password_hash: passwordHash, active: true })
-      .eq('id', existing.id);
-    if (error) { console.error('Update error:', error); return; }
-    console.log('Password updated successfully!');
+    console.log('Admin user already exists, updating metadata...');
+    const { error } = await supabase.auth.admin.updateUserById(existing.id, {
+      app_metadata: {
+        username: ADMIN_USERNAME,
+        display_name: 'Administrateur',
+        admin_role: 'admin',
+        permissions: [
+          'orders:view', 'orders:edit', 'orders:delete', 'orders:ship',
+          'products:manage', 'categories:manage', 'pixels:manage',
+          'delivery:manage', 'settings:manage', 'users:manage', 'reports:view',
+        ],
+      },
+    });
+    if (error) {
+      console.error('Failed to update admin:', error.message);
+      process.exit(1);
+    }
+    console.log('Admin metadata updated successfully.');
     return;
   }
 
-  // Create new admin
-  const passwordHash = await hashPassword(password);
-  const { data, error } = await supabase.from('admin_users').insert({
-    username,
-    password_hash: passwordHash,
-    display_name: 'Administrateur',
-    role: 'admin',
-    permissions: [
-      'orders:view', 'orders:edit', 'orders:delete', 'orders:ship',
-      'products:manage', 'categories:manage', 'pixels:manage',
-      'delivery:manage', 'settings:manage', 'users:manage', 'reports:view',
-    ],
-    active: true,
-  }).select('id, username').single();
+  // Create new admin user
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
+    email_confirm: true,
+    app_metadata: {
+      username: ADMIN_USERNAME,
+      display_name: 'Administrateur',
+      admin_role: 'admin',
+      permissions: [
+        'orders:view', 'orders:edit', 'orders:delete', 'orders:ship',
+        'products:manage', 'categories:manage', 'pixels:manage',
+        'delivery:manage', 'settings:manage', 'users:manage', 'reports:view',
+      ],
+    },
+  });
 
-  if (error) { console.error('Create error:', error); return; }
-  console.log(`Admin created: ${data.username} (id: ${data.id})`);
+  if (error) {
+    console.error('Failed to create admin:', error.message);
+    process.exit(1);
+  }
+
+  console.log(`Admin user created successfully!`);
+  console.log(`  ID: ${data.user.id}`);
+  console.log(`  Email: ${data.user.email}`);
+  console.log(`  Username: ${ADMIN_USERNAME}`);
+  console.log(`  Password: ${ADMIN_PASSWORD}`);
+  console.log(`\nChange the password from the admin panel after first login.`);
 }
 
-seed().catch(console.error);
+main().catch(err => {
+  console.error('Unexpected error:', err);
+  process.exit(1);
+});

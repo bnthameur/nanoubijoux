@@ -2,9 +2,8 @@
 
 import { usePathname } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
-import { Home, Search, ShoppingBag, Heart, User } from 'lucide-react';
+import { Home, Search, ShoppingBag, Package } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
-import { useWishlistStore } from '@/stores/wishlist-store';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { cn } from '@/lib/utils';
 
@@ -12,15 +11,13 @@ const navItems = [
   { href: '/', icon: Home, label: 'Accueil', match: /^\/[a-z]{2}\/?$/ },
   { href: '/boutique', icon: Search, label: 'Boutique', match: /\/boutique/ },
   { href: '/panier', icon: ShoppingBag, label: 'Panier', match: /\/panier/ },
-  { href: '/mon-compte/favoris', icon: Heart, label: 'Favoris', match: /\/favoris/ },
-  { href: '/mon-compte', icon: User, label: 'Compte', match: /\/mon-compte$/ },
+  { href: '/suivi', icon: Package, label: 'Suivi', match: /\/suivi/ },
 ];
 
 export function MobileBottomNav() {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const cartCount = useCartStore((s) => s.items.length);
-  const wishlistCount = useWishlistStore((s) => s.items.length);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100 lg:hidden safe-area-bottom">
@@ -28,11 +25,8 @@ export function MobileBottomNav() {
         {navItems.map((item) => {
           const isActive = item.match.test(pathname);
           const Icon = item.icon;
-          const showBadge =
-            hydrated &&
-            ((item.label === 'Panier' && cartCount > 0) ||
-              (item.label === 'Favoris' && wishlistCount > 0));
-          const badgeCount = item.label === 'Panier' ? cartCount : wishlistCount;
+          const showBadge = hydrated && item.label === 'Panier' && cartCount > 0;
+          const badgeCount = cartCount;
 
           return (
             <Link

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -10,7 +11,6 @@ import {
   FolderTree,
   Truck,
   Code,
-  Users,
   Shield,
   Settings,
   Ticket,
@@ -23,6 +23,11 @@ import {
   Store,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Lazy-load the password modal — only needed when user clicks "Change password"
+const PasswordModal = dynamic(() => import('@/components/admin/password-modal'), {
+  ssr: false,
+});
 
 interface AdminUser {
   id: string;
@@ -60,68 +65,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwSaving, setPwSaving] = useState(false);
-  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  // Prevent redundant auth fetches — only fetch once per session
+  const authChecked = useRef(false);
   const isLoginPage = pathname === '/admin/login';
 
-  useEffect(() => {
-    if (isLoginPage) return;
+  const checkAuth = useCallback(() => {
+    if (isLoginPage || authChecked.current) return;
+    authChecked.current = true;
     fetch('/api/admin/auth')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.user) setAdminUser(data.user);
-        else router.push('/admin/login');
+        else {
+          authChecked.current = false;
+          router.push('/admin/login');
+        }
       })
-      .catch(() => router.push('/admin/login'));
+      .catch(() => {
+        authChecked.current = false;
+        router.push('/admin/login');
+      });
   }, [router, isLoginPage]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   if (isLoginPage) return <>{children}</>;
 
   const handleLogout = async () => {
+    authChecked.current = false;
     await fetch('/api/admin/auth', { method: 'DELETE' });
     router.push('/admin/login');
-  };
-
-  const handlePasswordChange = async () => {
-    if (!currentPassword || !newPassword) {
-      setPwMsg({ text: 'Tous les champs sont requis', ok: false });
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPwMsg({ text: 'Le mot de passe doit contenir au moins 6 caractères', ok: false });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPwMsg({ text: 'Les mots de passe ne correspondent pas', ok: false });
-      return;
-    }
-    setPwSaving(true);
-    setPwMsg(null);
-    try {
-      const res = await fetch('/api/admin/auth/password', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setPwMsg({ text: 'Mot de passe modifié avec succès', ok: true });
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setTimeout(() => setShowPasswordModal(false), 1500);
-      } else {
-        setPwMsg({ text: data.error || 'Erreur', ok: false });
-      }
-    } catch {
-      setPwMsg({ text: 'Erreur de connexion', ok: false });
-    } finally {
-      setPwSaving(false);
-    }
   };
 
   const canSee = (link: (typeof navItems)[0]) => {
@@ -188,6 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
                   'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition-all duration-200',
                   active
@@ -242,10 +219,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setShowPasswordModal(true);
-                setPwMsg(null);
-              }}
+              onClick={() => setShowPasswordModal(true)}
               className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200"
             >
               {adminUser?.displayName || 'Admin'}
@@ -279,6 +253,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
                   'flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-colors',
                   active ? 'text-amber-600' : 'text-gray-400'
@@ -292,56 +267,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </nav>
 
-      {/* Password change modal */}
+      {/* Password change modal — lazy loaded */}
       {showPasswordModal && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-          onClick={() => setShowPasswordModal(false)}
-        >
-          <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-800">Changer le mot de passe</h2>
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-500 hover:bg-slate-200"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {pwMsg && (
-              <div className={cn('rounded-xl px-4 py-2.5 text-sm font-medium', pwMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>
-                {pwMsg.text}
-              </div>
-            )}
-
-            {(['currentPassword', 'newPassword', 'confirmPassword'] as const).map((field, i) => {
-              const labels = ['Mot de passe actuel', 'Nouveau mot de passe', 'Confirmer le mot de passe'];
-              const values = [currentPassword, newPassword, confirmPassword];
-              const setters = [setCurrentPassword, setNewPassword, setConfirmPassword];
-              return (
-                <label key={field} className="block space-y-1">
-                  <span className="text-xs font-semibold text-slate-500">{labels[i]}</span>
-                  <input
-                    type="password"
-                    value={values[i]}
-                    onChange={e => setters[i](e.target.value)}
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none transition-all focus:border-amber-400 focus:bg-white"
-                  />
-                </label>
-              );
-            })}
-
-            <button
-              onClick={handlePasswordChange}
-              disabled={pwSaving}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-bold text-white transition-all hover:bg-slate-700 disabled:opacity-60"
-            >
-              {pwSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-              {pwSaving ? 'En cours...' : 'Changer le mot de passe'}
-            </button>
-          </div>
-        </div>
+        <PasswordModal onClose={() => setShowPasswordModal(false)} />
       )}
     </div>
   );
