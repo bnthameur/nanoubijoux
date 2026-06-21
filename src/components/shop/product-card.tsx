@@ -20,6 +20,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const t = useTranslations('shop');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const hydrated = useHydrated();
   const addToCart = useCartStore((s) => s.addItem);
@@ -131,16 +132,16 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
               className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 rounded-lg transition-colors active:scale-95"
             >
               <ShoppingBag size={12} />
-              <span className="hidden sm:inline">{t('addToCart')}</span>
-              <span className="sm:hidden">Panier</span>
+              <span className="hidden sm:inline">{tCommon('addToCart')}</span>
+              <span className="sm:hidden">{tCommon('cart')}</span>
             </button>
             <button
               onClick={handleBuyNow}
               className="flex-1 flex items-center justify-center gap-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 rounded-lg transition-colors active:scale-95"
             >
               <Zap size={12} />
-              <span className="hidden sm:inline">{t('buyNow')}</span>
-              <span className="sm:hidden">Acheter</span>
+              <span className="hidden sm:inline">{tCommon('buyNow')}</span>
+              <span className="sm:hidden">{tCommon('buyNow')}</span>
             </button>
           </div>
         )}
