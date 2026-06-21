@@ -84,7 +84,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
           {outOfStock && (
             <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
               <span className="bg-gray-900 text-white text-xs font-medium px-3 py-1 rounded-full">
-                Épuisé
+                {tCommon('outOfStock')}
               </span>
             </div>
           )}

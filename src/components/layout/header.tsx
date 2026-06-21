@@ -188,7 +188,7 @@ export function Header() {
                   {searchQuery.length >= 2 && (
                     <div className="max-w-xl mx-auto mt-1 bg-white border border-border shadow-lg">
                       {searchResults.length === 0 && !isSearching ? (
-                        <p className="p-4 text-sm text-text-body text-center">Aucun résultat</p>
+                        <p className="p-4 text-sm text-text-body text-center">{tCommon('noResults')}</p>
                       ) : (
                         <>
                           {searchResults.map((product) => (
@@ -220,7 +220,7 @@ export function Header() {
                               onClick={() => { router.push(`/boutique?search=${encodeURIComponent(searchQuery)}`); closeSearch(); }}
                               className="w-full p-3 text-sm text-gold font-medium hover:bg-cream transition-colors border-t border-border"
                             >
-                              Voir tous les résultats
+                              {tCommon('seeAll')}
                             </button>
                           )}
                         </>

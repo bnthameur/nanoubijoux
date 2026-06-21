@@ -22,6 +22,8 @@ import { useParams, useRouter } from 'next/navigation';
 export default function ProductContent() {
   const t = useTranslations('product');
   const tCommon = useTranslations('common');
+  const tNav = useTranslations('nav');
+  const tShop = useTranslations('shop');
   const locale = useLocale();
   const params = useParams();
   const router = useRouter();
@@ -88,7 +90,10 @@ export default function ProductContent() {
   };
 
   const handleWhatsAppOrder = () => {
-    const msg = `Bonjour! Je veux commander:\n\n*${name}*\nPrix: ${formatPrice(product.price)}\nQuantité: ${quantity}\n\nMerci!`;
+    const msg = t('whatsappMsg')
+      .replace('{name}', name)
+      .replace('{price}', formatPrice(product.price))
+      .replace('{qty}', String(quantity));
     window.open(`https://wa.me/213549631236?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -102,7 +107,7 @@ export default function ProductContent() {
           <div className="flex items-center gap-2 text-sm text-text-body">
             <Link href="/" className="hover:text-gold transition-colors">{tCommon('siteName')}</Link>
             <ChevronRight size={14} />
-            <Link href="/boutique" className="hover:text-gold transition-colors">{t('description')}</Link>
+            <Link href="/boutique" className="hover:text-gold transition-colors">{tNav('shop')}</Link>
             <ChevronRight size={14} />
             <span className="text-dark font-medium truncate">{name}</span>
           </div>
@@ -194,7 +199,7 @@ export default function ProductContent() {
                 {tCommon('addToCart')}
               </Button>
               <button
-                onClick={() => { toggleWishlist(product); if (!isInWishlist) toast.success('Added to wishlist!'); }}
+                onClick={() => { toggleWishlist(product); if (!isInWishlist) toast.success(tShop('addedToWishlist')); }}
                 className={cn(
                   'w-12 h-12 flex-shrink-0 border-2 flex items-center justify-center transition-all',
                   isInWishlist ? 'border-red-500 bg-red-50 text-red-500' : 'border-border text-text-body hover:border-red-300 hover:text-red-400'
@@ -211,7 +216,7 @@ export default function ProductContent() {
               className="flex items-center justify-center gap-2 w-full py-3 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors mb-3 disabled:opacity-50"
             >
               <Zap size={18} />
-              Acheter maintenant
+              {tCommon('buyNow')}
             </button>
 
             {/* WhatsApp order */}
@@ -220,19 +225,19 @@ export default function ProductContent() {
               className="flex items-center justify-center gap-2 w-full py-3 border-2 border-green-500 text-green-600 font-medium hover:bg-green-50 transition-colors mb-8 rounded-lg"
             >
               <MessageCircle size={18} />
-              Commander via WhatsApp
+              {t('orderWhatsApp')}
             </button>
 
             {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { icon: Truck, text: 'Livraison 58 wilayas' },
-                { icon: Shield, text: 'Qualité garantie' },
-                { icon: RotateCcw, text: 'Acier inoxydable' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="text-center p-3 bg-cream">
+                { icon: Truck, key: 'trustDelivery' as const },
+                { icon: Shield, key: 'trustQuality' as const },
+                { icon: RotateCcw, key: 'trustMaterial' as const },
+              ].map(({ icon: Icon, key }) => (
+                <div key={key} className="text-center p-3 bg-cream">
                   <Icon size={20} className="mx-auto text-gold mb-1" />
-                  <p className="text-xs text-text-body">{text}</p>
+                  <p className="text-xs text-text-body">{t(key)}</p>
                 </div>
               ))}
             </div>
@@ -274,9 +279,9 @@ export default function ProductContent() {
             )}
             {activeTab === 'shipping' && (
               <div className="prose prose-sm max-w-none text-dark-light">
-                <p>Livraison disponible dans les 58 wilayas d&apos;Algérie.</p>
-                <p>Délai de livraison: 1-2 jours ouvrables.</p>
-                <p>Les frais de livraison varient selon la wilaya.</p>
+                <p>{t('shippingText1')}</p>
+                <p>{t('shippingText2')}</p>
+                <p>{t('shippingText3')}</p>
               </div>
             )}
           </div>

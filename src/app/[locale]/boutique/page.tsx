@@ -21,6 +21,7 @@ const emptyFilters: Filters = {
 
 export default function BoutiquePage() {
   const t = useTranslations('shop');
+  const tCommon = useTranslations('common');
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -71,10 +72,10 @@ export default function BoutiquePage() {
           {searchQuery ? (
             <div className="flex items-center gap-2 mt-2">
               <p className="text-text-body">
-                Résultats pour &quot;{searchQuery}&quot; ({products.length})
+                {t('searchResultsFor', { query: searchQuery, count: products.length })}
               </p>
               <a href="?" className="text-gold hover:underline text-sm flex items-center gap-1">
-                <X size={14} /> Effacer
+                <X size={14} /> {tCommon('clearSearch')}
               </a>
             </div>
           ) : (
@@ -148,13 +149,13 @@ export default function BoutiquePage() {
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {filters.categoryId && (
                   <span className="inline-flex items-center gap-1 bg-gold/10 text-gold text-xs px-3 py-1.5 font-medium">
-                    Catégorie
+                    {t('category')}
                     <button onClick={() => setFilters({ ...filters, categoryId: null })}><X size={12} /></button>
                   </span>
                 )}
                 {filters.brandId && (
                   <span className="inline-flex items-center gap-1 bg-gold/10 text-gold text-xs px-3 py-1.5 font-medium">
-                    Marque
+                    {t('brand')}
                     <button onClick={() => setFilters({ ...filters, brandId: null })}><X size={12} /></button>
                   </span>
                 )}
@@ -174,7 +175,7 @@ export default function BoutiquePage() {
                   onClick={() => setFilters(emptyFilters)}
                   className="text-xs text-text-body hover:text-gold underline"
                 >
-                  Tout effacer
+                  {t('clearFilters')}
                 </button>
               </div>
             )}
@@ -200,10 +201,10 @@ export default function BoutiquePage() {
 
             {!loading && products.length === 0 && (
               <div className="text-center py-20">
-                <p className="text-text-body mb-3">Aucun produit trouvé</p>
+                <p className="text-text-body mb-3">{tCommon('noProducts')}</p>
                 {activeFilterCount > 0 && (
                   <Button variant="outline" size="sm" onClick={() => setFilters(emptyFilters)}>
-                    Réinitialiser les filtres
+                    {t('clearFilters')}
                   </Button>
                 )}
               </div>
