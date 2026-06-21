@@ -101,9 +101,10 @@ export function Header() {
             </button>
 
             {/* Logo */}
-            <Link href="/" className="flex-shrink-0">
-              <span className="font-heading text-2xl font-bold text-dark tracking-tight">
-                Nano Bijoux
+            <Link href="/" className="flex-shrink-0 flex items-center gap-2">
+              <img src="/logo.png" alt="Nano Glamora" className="h-10 w-auto" />
+              <span className="font-heading text-xl font-bold text-dark tracking-tight hidden sm:block">
+                Nano Glamora
               </span>
             </Link>
 

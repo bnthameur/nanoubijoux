@@ -47,7 +47,7 @@ export default function ShippingPage() {
         <div className="prose prose-sm max-w-none text-charcoal">
           <h2 className="font-heading">Politique de livraison</h2>
           <p>
-            Chez Nano Bijoux, nous nous engageons à vous livrer vos commandes le plus rapidement possible.
+            Chez Nano Glamora, nous nous engageons à vous livrer vos commandes le plus rapidement possible.
             Toutes les commandes sont traitées sous 24 heures et expédiées via nos partenaires de livraison.
           </p>
           <h3 className="font-heading">Frais de livraison</h3>

@@ -1,142 +1,96 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useTranslations } from 'next-intl';
+import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { Calendar, ArrowRight, Search } from 'lucide-react';
-import { getPublishedBlogPosts } from '@/lib/supabase/queries';
-import Image from 'next/image';
+import { blogPosts } from '@/data/blog-posts';
+import { Clock, ArrowRight } from 'lucide-react';
 
-interface BlogPost {
-  id: string;
-  title_fr: string;
-  content_fr: string;
-  slug: string;
-  featured_image: string | null;
-  published_at: string;
-}
+export const metadata: Metadata = {
+  title: 'Blog Bijoux Algérie — Conseils, Tendances & Guides | Nano Glamora',
+  description: 'Conseils bijoux, tendances mode, guides d\'achat pour la femme algérienne. Bijoux à Oran, Alger, Annaba, Constantine. مدونة المجوهرات في الجزائر.',
+  keywords: [
+    'blog bijoux algérie', 'conseils bijoux', 'tendances bijoux 2024', 'guide achat bijoux',
+    'bijoux oran blog', 'bijoux alger blog', 'مدونة مجوهرات الجزائر', 'نصائح مجوهرات',
+  ],
+  openGraph: {
+    title: 'Blog Bijoux Algérie | Nano Glamora',
+    description: 'Conseils, tendances et guides bijoux pour la femme algérienne.',
+    images: ['/logo.png'],
+  },
+};
 
-export default function BlogPage() {
-  const t = useTranslations('nav');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getPublishedBlogPosts()
-      .then((data) => setPosts(data as BlogPost[]))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filteredPosts = posts.filter((post) =>
-    post.title_fr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.content_fr?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const getExcerpt = (content: string, maxLen = 120) => {
-    if (!content) return '';
-    const stripped = content.replace(/<[^>]+>/g, '').replace(/\n+/g, ' ');
-    return stripped.length > maxLen ? stripped.slice(0, maxLen) + '...' : stripped;
-  };
+export default async function BlogPage() {
+  const locale = await getLocale();
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="bg-cream border-b border-border py-10">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="font-heading text-3xl sm:text-4xl font-bold text-dark"
-          >
-            {t('blog')}
-          </motion.h1>
-          <p className="text-text-body mt-2">Conseils, tendances et guides bijoux</p>
-
-          <div className="relative mt-6 max-w-md">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un article..."
-              className="w-full pl-10 pr-4 py-2.5 border border-border bg-white text-sm focus:border-gold focus:outline-none"
-            />
-          </div>
-        </div>
+      <div className="bg-cream border-b border-border py-12 text-center">
+        <span className="text-gold font-medium text-sm uppercase tracking-widest">
+          {locale === 'ar' ? 'مدونتنا' : 'Notre Blog'}
+        </span>
+        <h1 className="font-heading text-3xl sm:text-4xl font-bold text-dark mt-2 mb-3">
+          {locale === 'ar'
+            ? 'مجوهرات، موضة ونصائح من الجزائر'
+            : "Bijoux, Mode & Conseils d'Algérie"}
+        </h1>
+        <p className="text-text-body max-w-xl mx-auto text-sm">
+          {locale === 'ar'
+            ? 'دليلك الكامل للمجوهرات والإكسسوارات في الجزائر — وهران، الجزائر، عنابة وأكثر'
+            : 'Votre guide complet sur les bijoux et accessoires en Algérie — Oran, Alger, Annaba et plus'}
+        </p>
       </div>
 
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[16/10] bg-gray-200 mb-4 rounded" />
-                <div className="h-4 w-24 bg-gray-200 mb-2 rounded" />
-                <div className="h-5 w-full bg-gray-200 mb-2 rounded" />
-                <div className="h-4 w-3/4 bg-gray-200 rounded" />
-              </div>
-            ))}
-          </div>
-        ) : filteredPosts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredPosts.map((post, i) => (
-              <motion.article
-                key={post.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <Link href={`/blog/${post.slug}`} className="group block">
-                  <div className="aspect-[16/10] overflow-hidden bg-cream mb-4 relative rounded-lg">
-                    {post.featured_image ? (
-                      <Image
-                        src={post.featured_image}
-                        alt={post.title_fr}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-cream flex items-center justify-center">
-                        <span className="text-4xl">📝</span>
-                      </div>
-                    )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {blogPosts.map((post) => {
+            const title = locale === 'ar' ? post.title_ar : post.title_fr;
+            const excerpt = locale === 'ar' ? post.excerpt_ar : post.excerpt_fr;
+
+            return (
+              <article key={post.slug} className="group border border-border hover:border-gold transition-colors">
+                <div className="h-48 bg-gradient-to-br from-cream to-gold/20 flex items-center justify-center">
+                  <span className="text-5xl">💎</span>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xs bg-gold/10 text-gold px-2 py-1 rounded font-medium uppercase tracking-wide">
+                      {post.category === 'guide'
+                        ? locale === 'ar' ? 'دليل' : 'Guide'
+                        : locale === 'ar' ? 'نصائح' : 'Conseils'}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-text-body">
+                      <Clock size={12} />
+                      {post.readTime} {locale === 'ar' ? 'دقائق' : 'min'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
-                    <Calendar size={14} />
-                    {formatDate(post.published_at)}
-                  </div>
-                  <h2 className="font-heading text-lg font-semibold text-dark group-hover:text-gold transition-colors mb-2">
-                    {post.title_fr}
+
+                  <h2 className="font-heading text-base font-bold text-dark mb-2 group-hover:text-gold transition-colors line-clamp-2">
+                    {title}
                   </h2>
-                  <p className="text-sm text-gray-500 mb-3">{getExcerpt(post.content_fr)}</p>
-                  <span className="text-sm text-gold font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                    Lire la suite <ArrowRight size={14} />
-                  </span>
-                </Link>
-              </motion.article>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            {searchQuery ? (
-              <p className="text-text-body">Aucun article trouvé pour &quot;{searchQuery}&quot;</p>
-            ) : (
-              <p className="text-text-body">Aucun article publié pour le moment.</p>
-            )}
-          </div>
-        )}
+
+                  <p className="text-text-body text-sm leading-relaxed mb-4 line-clamp-3">
+                    {excerpt}
+                  </p>
+
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {post.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} className="text-xs bg-cream px-2 py-0.5 text-text-body">
+                        #{tag.replace(/ /g, '')}
+                      </span>
+                    ))}
+                  </div>
+
+                  <Link
+                    href={`/blog/${post.slug}`}
+                    className="flex items-center gap-2 text-sm text-gold font-medium hover:gap-3 transition-all"
+                  >
+                    {locale === 'ar' ? 'اقرأ المزيد' : 'Lire la suite'}
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

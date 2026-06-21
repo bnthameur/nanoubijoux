@@ -83,24 +83,46 @@ export function CategoryGrid({ categories }: { categories: CategoryWithCount[] }
               transition={{ delay: index * 0.05 }}
               className="flex flex-col items-center"
             >
-              <Link href={`/boutique?category=${cat.slug}`} className="group flex flex-col items-center flex-shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gold transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.35)]">
-                  <div
-                    className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={
-                      cat.image_url
-                        ? { backgroundImage: `url(${cat.image_url})` }
-                        : { background: categoryGradients[index % categoryGradients.length] }
-                    }
-                  />
-                </div>
-                <h3 className="mt-3 font-heading text-sm font-semibold text-dark text-center leading-tight">
-                  {getLocalName(cat)}
-                </h3>
-                <p className="text-xs text-text-body mt-0.5">
-                  {cat.product_count} {locale === 'ar' ? 'منتج' : locale === 'en' ? 'products' : 'produits'}
-                </p>
-              </Link>
+                  {cat.product_count === 0 ? (
+                <Link href="/bientot" className="group flex flex-col items-center flex-shrink-0 opacity-75">
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gold transition-all duration-300">
+                    <div
+                      className="w-full h-full bg-cover bg-center"
+                      style={{ background: categoryGradients[index % categoryGradients.length] }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold tracking-wide bg-gold/90 px-2 py-0.5 rounded-full">
+                        {locale === 'ar' ? 'قريباً' : locale === 'en' ? 'Soon' : 'Bientôt'}
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="mt-3 font-heading text-sm font-semibold text-dark text-center leading-tight">
+                    {getLocalName(cat)}
+                  </h3>
+                  <p className="text-xs text-text-body mt-0.5">
+                    {locale === 'ar' ? 'قريباً' : locale === 'en' ? 'Coming Soon' : 'Bientôt'}
+                  </p>
+                </Link>
+              ) : (
+                <Link href={`/boutique?category=${cat.slug}`} className="group flex flex-col items-center flex-shrink-0">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gold transition-all duration-300 group-hover:shadow-[0_4px_20px_rgba(212,175,55,0.35)]">
+                    <div
+                      className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                      style={
+                        cat.image_url
+                          ? { backgroundImage: `url(${cat.image_url})` }
+                          : { background: categoryGradients[index % categoryGradients.length] }
+                      }
+                    />
+                  </div>
+                  <h3 className="mt-3 font-heading text-sm font-semibold text-dark text-center leading-tight">
+                    {getLocalName(cat)}
+                  </h3>
+                  <p className="text-xs text-text-body mt-0.5">
+                    {cat.product_count} {locale === 'ar' ? 'منتج' : locale === 'en' ? 'products' : 'produits'}
+                  </p>
+                </Link>
+              )}
             </motion.div>
           ))}
         </div>

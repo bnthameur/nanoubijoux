@@ -1,9 +1,9 @@
 // ============================================
-// Nano Bijoux — Constants
+// Nano Glamora — Constants
 // ============================================
 
-export const SITE_NAME = 'Nano Bijoux';
-export const SITE_TAGLINE = 'Votre boutique d\'accessoires en ligne';
+export const SITE_NAME = 'Nano Glamora';
+export const SITE_TAGLINE = 'Votre boutique de bijoux & accessoires en ligne';
 export const SITE_URL = 'https://nanobijoux.dz';
 
 export const WHATSAPP_NUMBER = '+213549631236';

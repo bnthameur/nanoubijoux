@@ -16,9 +16,10 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <span className="font-heading text-xl font-bold text-dark block mb-3">
-              Nano Bijoux
-            </span>
+            <div className="flex items-center gap-2 mb-3">
+              <img src="/logo.png" alt="Nano Glamora" className="h-10 w-auto" />
+              <span className="font-heading text-xl font-bold text-dark">Nano Glamora</span>
+            </div>
             <p className="text-text-body text-sm leading-relaxed">
               {t('description')}
             </p>
@@ -99,7 +100,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-10 pt-6 border-t border-border text-center text-sm text-text-body">
-          <p>Nano Bijoux DZ.© {year}. {t('rights', { year })}</p>
+          <p>© {year} Nano Glamora. {t('rights', { year })}</p>
         </div>
       </div>
     </footer>

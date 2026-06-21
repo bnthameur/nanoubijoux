@@ -1,6 +1,6 @@
 {
   "common": {
-    "siteName": "Nano Bijoux",
+    "siteName": "Nano Glamora",
     "tagline": "Votre boutique d'accessoires en ligne",
     "search": "Rechercher...",
     "cart": "Panier",
@@ -66,7 +66,7 @@
     "bijouxTitle": "NOS BIJOUX",
     "collectionLabel2": "Collection Élégante",
     "accessoiresTitle": "NOS ACCESSOIRES",
-    "brandPromise": "Pourquoi Nano Bijoux ?",
+    "brandPromise": "Pourquoi Nano Glamora ?",
     "promises": {
       "quality": "Meilleure qualité",
       "qualityDesc": "Qualité & finesse dans les détails",
@@ -81,7 +81,7 @@
     },
     "popularLabel": "Accessoires de mode",
     "popularTitle": "Produits les plus populaires",
-    "popularDesc": "Votre style, votre personnalité, vos moments. Chez Nano Bijoux, nous croyons que chaque femme mérite de se sentir unique, élégante et confiante.",
+    "popularDesc": "Votre style, votre personnalité, vos moments. Chez Nano Glamora, nous croyons que chaque femme mérite de se sentir unique, élégante et confiante.",
     "brands": "Nos Marques",
     "instagram": "Fil Instagram",
     "newsletter": "Restez informé",
@@ -89,7 +89,7 @@
     "emailPlaceholder": "Votre adresse e-mail",
     "subscribe": "S'inscrire",
     "blogTitle": "Notre Blog",
-    "blogDesc": "Chez Nano Bijoux, nous croyons que chaque femme mérite de se sentir unique, élégante et confiante."
+    "blogDesc": "Chez Nano Glamora, nous croyons que chaque femme mérite de se sentir unique, élégante et confiante."
   },
   "shop": {
     "title": "Boutique",
@@ -203,7 +203,7 @@
     "faqTitle": "Questions Fréquentes"
   },
   "about": {
-    "title": "À Propos de Nano Bijoux",
+    "title": "À Propos de Nano Glamora",
     "story": "Notre Histoire",
     "mission": "Notre Mission"
   },
@@ -212,7 +212,7 @@
     "usefulLinks": "Liens Utiles",
     "contactUs": "Nous Contacter",
     "followUs": "Suivez-nous",
-    "rights": "© {year} Nano Bijoux. Tous droits réservés.",
+    "rights": "© {year} Nano Glamora. Tous droits réservés.",
     "madeWith": "Fait avec ❤️ en Algérie",
     "tracking": "Suivi de commande"
   }

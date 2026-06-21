@@ -1,5 +1,5 @@
 // ============================================
-// Nano Bijoux — TypeScript Types
+// Nano Glamora — TypeScript Types
 // ============================================
 
 export interface Category {

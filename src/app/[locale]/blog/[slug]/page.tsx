@@ -1,146 +1,208 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { Calendar, ArrowLeft, ArrowRight } from 'lucide-react';
-import Image from 'next/image';
-import { createClient } from '@/lib/supabase/client';
+import { blogPosts, getBlogPost } from '@/data/blog-posts';
+import { Clock, ChevronRight, ArrowLeft } from 'lucide-react';
 
-interface BlogPost {
-  id: string;
-  title_fr: string;
-  content_fr: string;
-  slug: string;
-  featured_image: string | null;
-  published_at: string;
+export async function generateStaticParams() {
+  return blogPosts.map((post) => ({ slug: post.slug }));
 }
 
-export default function BlogPostPage() {
-  const params = useParams();
-  const slug = params?.slug as string;
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [related, setRelated] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; locale: string }>;
+}): Promise<Metadata> {
+  const { slug, locale } = await params;
+  const post = getBlogPost(slug);
+  if (!post) return {};
 
-  useEffect(() => {
-    if (!slug) return;
-    const supabase = createClient();
+  const title = locale === 'ar' ? post.title_ar : post.title_fr;
+  const description = locale === 'ar' ? post.excerpt_ar : post.excerpt_fr;
 
-    Promise.resolve(
-      supabase
-        .from('blog_posts')
-        .select('*')
-        .eq('slug', slug)
-        .not('published_at', 'is', null)
-        .single()
-    )
-      .then(({ data }) => {
-        setPost(data);
-        if (data) {
-          supabase
-            .from('blog_posts')
-            .select('*')
-            .not('published_at', 'is', null)
-            .neq('id', data.id)
-            .order('published_at', { ascending: false })
-            .limit(2)
-            .then(({ data: rel }) => setRelated(rel || []));
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [slug]);
+  return {
+    title,
+    description,
+    keywords: post.tags,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      publishedTime: post.publishedAt,
+      tags: post.tags,
+      images: [{ url: '/logo.png', width: 394, height: 307, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/logo.png'],
+    },
+    alternates: {
+      languages: {
+        fr: `/fr/blog/${slug}`,
+        ar: `/ar/blog/${slug}`,
+        en: `/en/blog/${slug}`,
+      },
+    },
+  };
+}
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+export default async function BlogArticlePage({
+  params,
+}: {
+  params: Promise<{ slug: string; locale: string }>;
+}) {
+  const { slug } = await params;
+  const locale = await getLocale();
+  const post = getBlogPost(slug);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (!post) notFound();
 
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <p className="text-text-body">Article introuvable.</p>
-        <Link href="/blog" className="text-gold hover:underline text-sm flex items-center gap-1">
-          <ArrowLeft size={14} /> Retour au blog
-        </Link>
-      </div>
-    );
-  }
+  const title = locale === 'ar' ? post.title_ar : post.title_fr;
+  const content = locale === 'ar' ? post.content_ar : post.content_fr;
+
+  const relatedPosts = blogPosts.filter((p) => p.slug !== slug).slice(0, 3);
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero image */}
-      {post.featured_image && (
-        <div className="relative w-full h-64 sm:h-96 bg-cream">
-          <Image
-            src={post.featured_image}
-            alt={post.title_fr}
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-          />
-        </div>
-      )}
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Back link */}
-        <Link href="/blog" className="inline-flex items-center gap-1 text-sm text-text-body hover:text-gold mb-6">
-          <ArrowLeft size={14} /> Retour au blog
-        </Link>
-
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
-            <Calendar size={14} />
-            {formatDate(post.published_at)}
+      {/* Breadcrumb */}
+      <div className="bg-cream border-b border-border">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center gap-2 text-sm text-text-body">
+            <Link href="/" className="hover:text-gold transition-colors">Nano Glamora</Link>
+            <ChevronRight size={14} />
+            <Link href="/blog" className="hover:text-gold transition-colors">
+              {locale === 'ar' ? 'المدونة' : 'Blog'}
+            </Link>
+            <ChevronRight size={14} />
+            <span className="text-dark font-medium truncate">{title}</span>
           </div>
-          <h1 className="font-heading text-3xl sm:text-4xl font-bold text-dark mb-8 leading-snug">
-            {post.title_fr}
+        </div>
+      </div>
+
+      <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Article Header */}
+        <header className="mb-10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xs bg-gold/10 text-gold px-3 py-1 rounded-full font-medium uppercase tracking-wide">
+              {post.category === 'guide'
+                ? locale === 'ar' ? 'دليل' : 'Guide'
+                : locale === 'ar' ? 'نصائح' : 'Conseils'}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-text-body">
+              <Clock size={12} />
+              {post.readTime} {locale === 'ar' ? 'دقائق للقراءة' : 'min de lecture'}
+            </span>
+            <time className="text-xs text-text-body">
+              {new Date(post.publishedAt).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : 'fr-DZ', {
+                year: 'numeric', month: 'long', day: 'numeric',
+              })}
+            </time>
+          </div>
+
+          <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold text-dark leading-tight mb-6">
+            {title}
           </h1>
-        </motion.div>
 
-        {/* Content */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="prose prose-gray max-w-none text-charcoal leading-relaxed"
-          style={{ whiteSpace: 'pre-wrap' }}
-        >
-          {post.content_fr}
-        </motion.div>
+          <div className="flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <span key={tag} className="text-xs bg-cream border border-border px-3 py-1 text-text-body">
+                #{tag.replace(/ /g, '')}
+              </span>
+            ))}
+          </div>
+        </header>
 
-        {/* Related posts */}
-        {related.length > 0 && (
-          <div className="mt-16 pt-10 border-t border-border">
-            <h2 className="font-heading text-xl font-semibold text-dark mb-6">Articles similaires</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {related.map((r) => (
-                <Link key={r.id} href={`/blog/${r.slug}`} className="group block">
-                  <div className="aspect-[16/9] overflow-hidden bg-cream relative rounded mb-3">
-                    {r.featured_image ? (
-                      <Image src={r.featured_image} alt={r.title_fr} fill className="object-cover group-hover:scale-105 transition-transform duration-500" sizes="(max-width: 640px) 100vw, 50vw" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-cream flex items-center justify-center text-3xl">📝</div>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mb-1">{formatDate(r.published_at)}</p>
-                  <h3 className="font-heading font-semibold text-dark group-hover:text-gold transition-colors text-sm line-clamp-2">{r.title_fr}</h3>
-                  <span className="text-xs text-gold flex items-center gap-1 mt-1">Lire la suite <ArrowRight size={12} /></span>
-                </Link>
-              ))}
+        {/* Hero banner */}
+        <div className="w-full h-64 sm:h-80 bg-gradient-to-br from-cream via-gold/10 to-cream flex items-center justify-center mb-10 rounded-sm">
+          <div className="text-center">
+            <span className="text-7xl">💎</span>
+            <p className="text-gold font-heading font-bold mt-3 text-lg">Nano Glamora</p>
+          </div>
+        </div>
+
+        {/* Article Content */}
+        <article
+          className="prose prose-lg max-w-none text-dark-light
+            prose-headings:font-heading prose-headings:text-dark prose-headings:font-bold
+            prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4
+            prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
+            prose-p:text-text-body prose-p:leading-relaxed prose-p:mb-4
+            prose-ul:text-text-body prose-li:mb-1
+            prose-strong:text-dark prose-strong:font-semibold
+            prose-a:text-gold prose-a:no-underline hover:prose-a:underline
+            prose-table:border-collapse prose-th:bg-cream prose-th:p-3 prose-td:p-3 prose-td:border prose-td:border-border"
+          dangerouslySetInnerHTML={{ __html: markdownToHtml(content) }}
+        />
+
+        {/* CTA Banner */}
+        <div className="mt-12 p-8 bg-gradient-to-r from-gold/10 to-cream border border-gold/30 text-center">
+          <h3 className="font-heading text-xl font-bold text-dark mb-2">
+            {locale === 'ar' ? 'اكتشفي مجموعة نانو غلامورا' : 'Découvrez la Collection Nano Glamora'}
+          </h3>
+          <p className="text-text-body text-sm mb-4">
+            {locale === 'ar'
+              ? 'مجوهرات أنيقة بالتوصيل في 58 ولاية'
+              : 'Bijoux élégants livrés dans les 58 wilayas'}
+          </p>
+          <Link
+            href="/boutique"
+            className="inline-block bg-gold text-white font-semibold px-8 py-3 hover:bg-gold-dark transition-colors"
+          >
+            {locale === 'ar' ? 'تسوقي الآن' : 'Acheter maintenant'}
+          </Link>
+        </div>
+
+        {/* Related Articles */}
+        {relatedPosts.length > 0 && (
+          <div className="mt-16">
+            <h3 className="font-heading text-xl font-bold text-dark mb-6">
+              {locale === 'ar' ? 'مقالات ذات صلة' : 'Articles similaires'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {relatedPosts.map((related) => {
+                const relTitle = locale === 'ar' ? related.title_ar : related.title_fr;
+                return (
+                  <Link
+                    key={related.slug}
+                    href={`/blog/${related.slug}`}
+                    className="group border border-border p-4 hover:border-gold transition-colors"
+                  >
+                    <h4 className="text-sm font-semibold text-dark group-hover:text-gold transition-colors line-clamp-2 mb-2">
+                      {relTitle}
+                    </h4>
+                    <span className="flex items-center gap-1 text-xs text-gold">
+                      {locale === 'ar' ? 'اقرأ المزيد' : 'Lire'}
+                      <ArrowLeft size={12} className="rtl:rotate-180" />
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function markdownToHtml(md: string): string {
+  return md
+    .trim()
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
+    .replace(/^\|(.+)\|$/gm, (row) => {
+      const cells = row.split('|').filter((c) => c.trim());
+      return '<tr>' + cells.map((c) => `<td>${c.trim()}</td>`).join('') + '</tr>';
+    })
+    .replace(/(<tr>.*<\/tr>\n?)+/g, (m) => `<table>${m}</table>`)
+    .replace(/^(?!<[hut]|$)(.+)$/gm, '<p>$1</p>')
+    .replace(/\n{2,}/g, '\n');
 }

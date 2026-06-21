@@ -1,6 +1,6 @@
 {
   "common": {
-    "siteName": "Nano Bijoux",
+    "siteName": "Nano Glamora",
     "tagline": "Your online accessories boutique",
     "search": "Search...",
     "cart": "Cart",
@@ -66,7 +66,7 @@
     "bijouxTitle": "OUR JEWELRY",
     "collectionLabel2": "Elegant Collection",
     "accessoiresTitle": "OUR ACCESSORIES",
-    "brandPromise": "Why Nano Bijoux?",
+    "brandPromise": "Why Nano Glamora?",
     "promises": {
       "quality": "Best Quality",
       "qualityDesc": "Quality & finesse in every detail",
@@ -81,7 +81,7 @@
     },
     "popularLabel": "Fashion Accessories",
     "popularTitle": "Most Popular Products",
-    "popularDesc": "Your style, your personality, your moments. At Nano Bijoux, we believe every woman deserves to feel unique, elegant and confident.",
+    "popularDesc": "Your style, your personality, your moments. At Nano Glamora, we believe every woman deserves to feel unique, elegant and confident.",
     "brands": "Our Brands",
     "instagram": "Instagram Feed",
     "newsletter": "Stay Updated",
@@ -89,7 +89,7 @@
     "emailPlaceholder": "Your email address",
     "subscribe": "Subscribe",
     "blogTitle": "Our Blog",
-    "blogDesc": "At Nano Bijoux, we believe every woman deserves to feel unique, elegant and confident."
+    "blogDesc": "At Nano Glamora, we believe every woman deserves to feel unique, elegant and confident."
   },
   "shop": {
     "title": "Shop",
@@ -203,7 +203,7 @@
     "faqTitle": "Frequently Asked Questions"
   },
   "about": {
-    "title": "About Nano Bijoux",
+    "title": "About Nano Glamora",
     "story": "Our Story",
     "mission": "Our Mission"
   },
@@ -212,7 +212,7 @@
     "usefulLinks": "Useful Links",
     "contactUs": "Contact Us",
     "followUs": "Follow Us",
-    "rights": "© {year} Nano Bijoux. All rights reserved.",
+    "rights": "© {year} Nano Glamora. All rights reserved.",
     "madeWith": "Made with ❤️ in Algeria",
     "tracking": "Order Tracking"
   }

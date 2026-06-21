@@ -15,7 +15,7 @@ interface StoreSettings {
 }
 
 const DEFAULTS: StoreSettings = {
-  store_name: 'Nano Bijoux',
+  store_name: 'Nano Glamora',
   phone: '',
   facebook: '',
   instagram: '',

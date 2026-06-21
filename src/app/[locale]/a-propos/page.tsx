@@ -43,7 +43,7 @@ export default function AboutPage() {
             className="prose prose-lg max-w-none text-charcoal"
           >
             <p>
-              Nano Bijoux est née de la passion de rendre l&apos;élégance accessible à toutes les femmes algériennes.
+              Nano Glamora est née de la passion de rendre l&apos;élégance accessible à toutes les femmes algériennes.
               Nous croyons que chaque femme mérite de porter des bijoux qui reflètent sa personnalité et sa beauté intérieure.
             </p>
             <p>

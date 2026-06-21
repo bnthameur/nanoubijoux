@@ -43,7 +43,10 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             className="fixed top-0 left-0 bottom-0 w-[300px] bg-white z-50 lg:hidden shadow-2xl rtl:left-auto rtl:right-0"
           >
             <div className="flex items-center justify-between p-5 border-b border-border">
-              <span className="font-heading text-xl font-bold text-dark">Nano Bijoux</span>
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="Nano Glamora" className="h-8 w-auto" />
+                <span className="font-heading text-lg font-bold text-dark">Nano Glamora</span>
+              </div>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-light transition-colors"

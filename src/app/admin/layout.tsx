@@ -143,7 +143,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   color: 'transparent',
                 }}
               >
-                Nano Bijoux
+                Nano Glamora
               </div>
               <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-amber-400/70">
                 Console d&apos;administration
